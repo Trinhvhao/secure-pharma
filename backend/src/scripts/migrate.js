@@ -195,7 +195,11 @@ async function seedData() {
 
 /**
  * 4. Seed accounts (sau khi có bảng TaiKhoan và NhanVien)
- * Tạo 3 tài khoản demo: admin, nv1, nv2
+ * Tạo 4 tài khoản demo theo naming convention (role.tên):
+ *   admin.huong    / Admin@2026   (Admin       - Nguyễn Thị Hương)
+ *   banhang.minh   / BanHang@2026 (NV_BanHang  - Trần Văn Minh)
+ *   banhang.lan    / BanHang@2026 (NV_BanHang  - Lê Thị Lan)
+ *   kho.cuong      / Kho@2026     (NV_Kho      - Lê Văn Cường)
  */
 async function seedAccounts() {
     console.log(`\n👤 [4/4] Tạo tài khoản demo...`);
@@ -206,33 +210,38 @@ async function seedAccounts() {
     try {
         pool = await sql.connect(getTargetConfig());
 
-        // Hash passwords
-        const hashAdmin = await bcrypt.hash('admin123', 10);
-        const hashNV1 = await bcrypt.hash('nv123', 10);
-        const hashNV2 = await bcrypt.hash('nv123', 10);
+        // Hash passwords (bcrypt salt 10)
+        const hashAdmin   = await bcrypt.hash('Admin@2026',   10);
+        const hashBanHang = await bcrypt.hash('BanHang@2026', 10);
+        const hashKho     = await bcrypt.hash('Kho@2026',     10);
 
-        // Xóa tài khoản cũ nếu có (để idempotent)
-        await pool.request().query(`DELETE FROM TaiKhoan WHERE TenDangNhap IN ('admin', 'nv1', 'nv2')`);
+        // Xóa tài khoản cũ nếu có (idempotent)
+        await pool.request().query(`DELETE FROM TaiKhoan`);
 
-        // Tạo accounts - tham chiếu MaNV = 1 (admin), 2 (nv1), 3 (nv2) từ seed NhanVien
+        // Tạo accounts - tham chiếu MaNV = 1 (Admin), 2, 3 (NV_BanHang), 4 (NV_Kho)
+        // Naming convention: role.tên (theo .cursor/rules/naming-conventions.mdc)
         await pool.request()
-            .input('admin', sql.VarChar, 'admin')
-            .input('adminHash', sql.NVarChar, hashAdmin)
-            .input('nv1', sql.VarChar, 'nv1')
-            .input('nv1Hash', sql.NVarChar, hashNV1)
-            .input('nv2', sql.VarChar, 'nv2')
-            .input('nv2Hash', sql.NVarChar, hashNV2)
+            .input('huong',  sql.VarChar, 'admin.huong')
+            .input('h',      sql.NVarChar, hashAdmin)
+            .input('minh',   sql.VarChar, 'banhang.minh')
+            .input('m',      sql.NVarChar, hashBanHang)
+            .input('lan',    sql.VarChar, 'banhang.lan')
+            .input('l',      sql.NVarChar, hashBanHang)
+            .input('cuong',  sql.VarChar, 'kho.cuong')
+            .input('c',      sql.NVarChar, hashKho)
             .query(`
                 INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV) VALUES
-                ('admin', @adminHash, N'Admin', N'HoatDong', 1),
-                ('nv1',   @nv1Hash,   N'NV_BanHang', N'HoatDong', 2),
-                ('nv2',   @nv2Hash,   N'NV_BanHang', N'HoatDong', 3)
+                ('admin.huong',    @h, N'Admin',       N'HoatDong', 1),
+                ('banhang.minh',   @m, N'NV_BanHang',  N'HoatDong', 2),
+                ('banhang.lan',    @l, N'NV_BanHang',  N'HoatDong', 3),
+                ('kho.cuong',      @c, N'NV_Kho',      N'HoatDong', 4)
             `);
 
-        console.log(`   ✅ Đã tạo 3 tài khoản:`);
-        console.log(`      - admin / admin123 (Admin)`);
-        console.log(`      - nv1   / nv123    (NV_BanHang)`);
-        console.log(`      - nv2   / nv123    (NV_BanHang)`);
+        console.log(`   ✅ Đã tạo 4 tài khoản (theo naming-conventions.mdc):`);
+        console.log(`      - admin.huong    / Admin@2026    (Admin       - Nguyễn Thị Hương)`);
+        console.log(`      - banhang.minh   / BanHang@2026  (NV_BanHang  - Trần Văn Minh)`);
+        console.log(`      - banhang.lan    / BanHang@2026  (NV_BanHang  - Lê Thị Lan)`);
+        console.log(`      - kho.cuong      / Kho@2026      (NV_Kho      - Lê Văn Cường)`);
     } catch (err) {
         console.error(`   ❌ Lỗi tạo tài khoản: ${err.message}`);
         throw err;
@@ -376,10 +385,11 @@ async function main() {
                 console.log(`\n📝 Bước tiếp theo:`);
                 console.log(`   cd d:/LibraryCode/SecurePharma/backend`);
                 console.log(`   npm start`);
-                console.log(`\n🔑 Tài khoản demo:`);
-                console.log(`   admin / admin123   (Admin)`);
-                console.log(`   nv1   / nv123      (NV_BanHang)`);
-                console.log(`   nv2   / nv123      (NV_BanHang)`);
+                console.log(`\n🔑 Tài khoản demo (theo naming-conventions.mdc):`);
+                console.log(`   admin.huong    / Admin@2026    (Admin)`);
+                console.log(`   banhang.minh   / BanHang@2026  (NV_BanHang)`);
+                console.log(`   banhang.lan    / BanHang@2026  (NV_BanHang)`);
+                console.log(`   kho.cuong      / Kho@2026      (NV_Kho)`);
                 break;
 
             case 'tables':

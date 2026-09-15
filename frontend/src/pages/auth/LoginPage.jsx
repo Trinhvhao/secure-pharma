@@ -118,13 +118,13 @@ function LoginPage() {
                         </button>
                     </form>
 
-                    {/* Demo accounts info */}
+                    {/* Demo accounts info - theo naming-conventions.mdc */}
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                         <p className="text-xs font-semibold text-blue-800 mb-2">🔐 Tài khoản demo:</p>
                         <div className="space-y-1 text-xs text-blue-700">
-                            <p>👤 <strong>admin / admin123</strong> - Quản lý</p>
-                            <p>👤 <strong>nv1 / nv123</strong> - Nhân viên</p>
-                            <p>👤 <strong>nv2 / nv123</strong> - Nhân viên</p>
+                            <p><strong>Quản lý:</strong> admin.huong / Admin@2026</p>
+                            <p><strong>Bán hàng:</strong> banhang.minh / BanHang@2026</p>
+                            <p><strong>Thủ kho:</strong> kho.cuong / Kho@2026</p>
                         </div>
                     </div>
                 </div>

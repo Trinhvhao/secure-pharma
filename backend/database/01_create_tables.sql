@@ -93,7 +93,7 @@ BEGIN
     CREATE TABLE TaiKhoan (
         TenDangNhap VARCHAR(50) PRIMARY KEY,
         MatKhauHash VARCHAR(255) NOT NULL,
-        VaiTro NVARCHAR(50) NOT NULL CHECK (VaiTro IN ('Admin', 'NV_BanHang')),
+        VaiTro NVARCHAR(50) NOT NULL CHECK (VaiTro IN ('Admin', 'NV_BanHang', 'NV_Kho')),
         TrangThai NVARCHAR(50) DEFAULT N'HoatDong',
         MaNV INT NOT NULL,
         LastLogin DATETIME2,

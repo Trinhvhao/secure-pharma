@@ -53,7 +53,8 @@ BEGIN
     INSERT INTO NhanVien (MaNV, TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai) VALUES
     (1, N'Nguyễn Thị Hương', '0912345678', N'Nữ', 15000000, '2020-01-15', N'DangLam'),
     (2, N'Trần Văn Minh', '0923456789', N'Nam', 8000000, '2022-03-20', N'DangLam'),
-    (3, N'Lê Thị Lan', '0934567890', N'Nữ', 8000000, '2023-06-01', N'DangLam');
+    (3, N'Lê Thị Lan', '0934567890', N'Nữ', 8000000, '2023-06-01', N'DangLam'),
+    (4, N'Lê Văn Cường', '0945678901', N'Nam', 8500000, '2024-02-10', N'DangLam');
 END
 
 SET IDENTITY_INSERT NhanVien OFF;
