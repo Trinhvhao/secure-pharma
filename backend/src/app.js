@@ -68,8 +68,8 @@ app.get('/api', (req, res) => {
     });
 });
 
-// ========== API Routes (Phase 2+) ==========
-// app.use('/api/auth', require('./modules/auth/auth.routes'));
+// ========== API Routes (Phase 2) ==========
+app.use('/api/auth', require('./modules/auth/auth.routes'));
 // Thêm routes cho Phase 3+: thuoc, khachhang, nhacungcap, nhanvien, kho, banhang, taichinh, thongke
 
 // Error handlers
