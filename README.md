@@ -125,6 +125,11 @@ Mở `http://localhost:5173` → Click "Test API Connection" để verify.
 | [`IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) | Kế hoạch triển khai 6 Phase |
 | [`INSTALL.md`](./docs/INSTALL.md) | Hướng dẫn cài đặt chi tiết |
 | [`PHASE1_CHECKLIST.md`](./docs/archive/PHASE1_CHECKLIST.md) | Checklist hoàn thành Phase 1 |
+| [`UI_DESIGN_SYSTEM.md`](./docs/UI_DESIGN_SYSTEM.md) | Design system, palette, component contract cho toàn FE |
+| [`UI_REVIEW.md`](./docs/UI_REVIEW.md) | Audit 6 trụ cột UI/UX của 11 page hiện có (15/09/2026) |
+| [`UI_REDESIGN_PLAN.md`](./docs/UI_REDESIGN_PLAN.md) | Kế hoạch cải thiện FE 6 phase (ưu tiên → polish) |
+| [`CRUD_MODAL_AUDIT.md`](./docs/CRUD_MODAL_AUDIT.md) | 🔍 Audit + test plan + đề xuất cải thiện modal CRUD (16/09/2026) |
+| [`UI_NOTIFICATIONS.md`](./docs/UI_NOTIFICATIONS.md) | 🔔 Hệ thống toast + ConfirmDialog — quy tắc & pattern dùng cho toàn FE |
 
 ---
 

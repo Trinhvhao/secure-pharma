@@ -1,8 +1,8 @@
 /**
  * KhachHang Routes
  *
- * Write: Admin + NV_BanHang (theo ma trận phân quyền)
- * Read: All roles (stats, detail, history đều public với tài khoản đã đăng nhập)
+ * Read: Admin + NV_BanHang (NV_Kho không được phép xem thông tin khách hàng theo RBAC matrix)
+ * Write: Admin + NV_BanHang
  *
  * Endpoints:
  *  GET    /api/khach-hang              - Danh sách + filter
@@ -23,13 +23,11 @@ const { writeLimiter } = require('../../middleware/rateLimit');
 
 router.use(authenticate);
 
-// Stats — public cho tất cả role đã login
-router.get('/stats', ctrl.getStats);
-
-// List + detail — public cho tất cả role
-router.get('/', ctrl.getAll);
-router.get('/:id', ctrl.getById);
-router.get('/:id/hoa-don', ctrl.getHoaDonByKhachHang);
+// Read operations — Admin + NV_BanHang only (NV_Kho không được phép xem KH)
+router.get('/', requireRole('Admin', 'NV_BanHang'), ctrl.getAll);
+router.get('/stats', requireRole('Admin', 'NV_BanHang'), ctrl.getStats);
+router.get('/:id', requireRole('Admin', 'NV_BanHang'), ctrl.getById);
+router.get('/:id/hoa-don', requireRole('Admin', 'NV_BanHang'), ctrl.getHoaDonByKhachHang);
 
 // Write operations — giới hạn theo role
 router.post('/', writeLimiter, requireRole('Admin', 'NV_BanHang'), audit('CREATE_KH'), ctrl.create);

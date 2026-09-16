@@ -309,6 +309,49 @@ async function checkStatus() {
 }
 
 /**
+ * 5. Apply migration patches (idempotent ALTERs)
+ * Đọc tất cả file patch_* trong /database và chạy theo thứ tự.
+ * Patch dùng IF EXISTS / IF NOT EXISTS để chạy nhiều lần không lỗi.
+ */
+async function applyPatches() {
+    const dbDir = path.join(__dirname, '..', '..', 'database');
+    // Quét patch theo tên: 03_patch_*, 04_patch_*, 05_patch_*, ... (bỏ qua 06 - vì 06 đã có nhưng vẫn scan, idempotent OK)
+    const patchFiles = fs.readdirSync(dbDir)
+        .filter(f => /^\d+_patch_.*\.sql$/.test(f))
+        .sort(); // chạy theo thứ tự số
+
+    if (patchFiles.length === 0) {
+        console.log(`\n   ℹ️  Không có patch nào để chạy.`);
+        return;
+    }
+
+    console.log(`\n🔧 [5/5] Apply ${patchFiles.length} migration patch(es)...`);
+
+    let pool;
+    try {
+        pool = await sql.connect(getTargetConfig());
+
+        for (const file of patchFiles) {
+            const fullPath = path.join(dbDir, file);
+            const sqlContent = fs.readFileSync(fullPath, 'utf8');
+            const batches = splitSqlBatches(sqlContent);
+
+            for (let i = 0; i < batches.length; i++) {
+                const batch = batches[i];
+                if (/USE\s+SecurePharmaDB/i.test(batch)) continue;
+                await executeBatch(pool, batch, `${file} - batch ${i + 1}/${batches.length}`);
+            }
+        }
+        console.log(`   ✅ Apply patches hoàn tất.`);
+    } catch (err) {
+        console.error(`   ❌ Lỗi apply patch: ${err.message}`);
+        throw err;
+    } finally {
+        if (pool) await pool.close();
+    }
+}
+
+/**
  * RESET - Xóa toàn bộ database và tạo lại (NGUY HIỂM)
  */
 async function resetDatabase() {
@@ -374,11 +417,12 @@ async function main() {
     try {
         switch (action) {
             case 'setup':
-                // Setup đầy đủ: tạo DB + tables + seed + accounts
+                // Setup đầy đủ: tạo DB + tables + seed + accounts + patches
                 await createDatabase();
                 await createTables();
                 await seedData();
                 await seedAccounts();
+                await applyPatches();
                 console.log(`\n${'═'.repeat(60)}`);
                 console.log(`✅ SETUP HOÀN TẤT!`);
                 console.log(`${'═'.repeat(60)}`);
@@ -410,6 +454,12 @@ async function main() {
                 console.log(`\n✅ Tạo accounts hoàn tất!`);
                 break;
 
+            case 'patches':
+                // Chỉ apply migration patches
+                await applyPatches();
+                console.log(`\n✅ Apply patches hoàn tất!`);
+                break;
+
             case 'status':
                 await checkStatus();
                 break;
@@ -421,10 +471,11 @@ async function main() {
             default:
                 console.log(`\n❌ Unknown action: ${action}`);
                 console.log(`\nUsage:`);
-                console.log(`   node migrate.js setup      # Tạo DB + tables + seed + accounts`);
+                console.log(`   node migrate.js setup      # Tạo DB + tables + seed + accounts + patches`);
                 console.log(`   node migrate.js tables     # Chỉ tạo tables`);
                 console.log(`   node migrate.js seed       # Chỉ seed data`);
                 console.log(`   node migrate.js accounts   # Chỉ tạo accounts`);
+                console.log(`   node migrate.js patches    # Chỉ chạy migration patches`);
                 console.log(`   node migrate.js status     # Xem trạng thái`);
                 console.log(`   node migrate.js reset      # Xóa và tạo lại từ đầu`);
                 process.exit(1);

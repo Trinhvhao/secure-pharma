@@ -1,8 +1,8 @@
 /**
  * HoaDon Routes - Resource chính cho hóa đơn
  *
- *  GET  /             — Danh sách (All authenticated)
- *  GET  /:id          — Chi tiết (All authenticated)
+ *  GET  /             — Danh sách (Admin, NV_BanHang)
+ *  GET  /:id          — Chi tiết (Admin, NV_BanHang)
  *  PUT  /:id/huy      — Hủy hóa đơn (Admin only)
  *
  * POST /api/ban-hang (action) vẫn ở banHang.routes.js vì là action riêng
@@ -16,8 +16,9 @@ const { writeLimiter } = require('../../middleware/rateLimit');
 
 router.use(authenticate);
 
-router.get('/', ctrl.getAll);
-router.get('/:id', ctrl.getById);
+// Read — Admin + NV_BanHang only (NV_Kho không được phép xem hóa đơn theo RBAC matrix)
+router.get('/', requireRole('Admin', 'NV_BanHang'), ctrl.getAll);
+router.get('/:id', requireRole('Admin', 'NV_BanHang'), ctrl.getById);
 
 router.put('/:id/huy', writeLimiter, requireRole('Admin'), ctrl.cancel);
 

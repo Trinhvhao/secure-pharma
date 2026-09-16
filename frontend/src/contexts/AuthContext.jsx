@@ -54,17 +54,18 @@ export function AuthProvider({ children }) {
     const login = async (username, password) => {
         try {
             const response = await authService.login(username, password);
-            
+
             if (response.success) {
-                const { token: newToken, user: userData } = response.data;
-                
+                const { token: newToken, refreshToken: newRefresh, user: userData } = response.data;
+
                 // Save to localStorage
                 localStorage.setItem('token', newToken);
+                localStorage.setItem('refreshToken', newRefresh);
                 localStorage.setItem('user', JSON.stringify(userData));
-                
+
                 setToken(newToken);
                 setUser(userData);
-                
+
                 return { success: true };
             }
             return { success: false, message: response.error?.message || 'Đăng nhập thất bại' };
@@ -86,6 +87,7 @@ export function AuthProvider({ children }) {
             console.error('Logout API error:', err);
         } finally {
             localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
             setToken(null);
             setUser(null);

@@ -40,7 +40,7 @@ BEGIN
         MaNCC INT IDENTITY(1,1) PRIMARY KEY,
         TenNCC NVARCHAR(400) NOT NULL,
         DiaChi NVARCHAR(1000),
-        SDT VARCHAR(15),
+        SDT VARCHAR(64), -- AES-256 encrypted (base64 ~24 chars)
         CreatedAt DATETIME2 DEFAULT GETDATE(),
         UpdatedAt DATETIME2 DEFAULT GETDATE()
     );
@@ -56,7 +56,7 @@ BEGIN
     CREATE TABLE KhachHang (
         MaKH INT IDENTITY(1,1) PRIMARY KEY,
         TenKH NVARCHAR(200) NOT NULL,
-        SDT VARCHAR(15),
+        SDT VARCHAR(64), -- AES-256 encrypted
         GioiTinh NVARCHAR(20),
         NgayTao DATETIME2 DEFAULT GETDATE(),
         UpdatedAt DATETIME2 DEFAULT GETDATE()
@@ -73,7 +73,7 @@ BEGIN
     CREATE TABLE NhanVien (
         MaNV INT IDENTITY(1,1) PRIMARY KEY,
         TenNV NVARCHAR(200) NOT NULL,
-        SDT VARCHAR(15),
+        SDT VARCHAR(64), -- AES-256 encrypted
         GioiTinh NVARCHAR(20),
         Luong DECIMAL(18,2),
         NgayVaoLam DATE DEFAULT GETDATE(),
@@ -183,6 +183,7 @@ BEGIN
         MaHD INT IDENTITY(1,1) PRIMARY KEY,
         NgayGioLap DATETIME2 DEFAULT GETDATE(),
         TongTien DECIMAL(18,2) NOT NULL,
+        GiamGia DECIMAL(18,2) NOT NULL DEFAULT 0,
         TienKhachDua DECIMAL(18,2),
         TienTraLai DECIMAL(18,2),
         TrangThai NVARCHAR(50) DEFAULT N'DaThanhToan',

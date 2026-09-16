@@ -24,8 +24,9 @@ function success(res, data = null, message = 'Thành công', statusCode = 200) {
  * @param {number} total - Total count
  * @param {number} page - Current page
  * @param {number} limit - Items per page
+ * @param {Object} extra - Extra fields to include in data (e.g. counts for filter chips)
  */
-function successPaginated(res, items, total, page = 1, limit = 10) {
+function successPaginated(res, items, total, page = 1, limit = 10, extra = {}) {
     return res.status(200).json({
         success: true,
         message: 'Thành công',
@@ -36,7 +37,8 @@ function successPaginated(res, items, total, page = 1, limit = 10) {
                 limit: parseInt(limit),
                 total: parseInt(total),
                 totalPages: Math.ceil(parseInt(total) / parseInt(limit))
-            }
+            },
+            ...extra
         }
     });
 }

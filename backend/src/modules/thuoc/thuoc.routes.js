@@ -13,6 +13,7 @@ router.use(authenticate);
 
 // Read - All roles
 router.get('/', ctrl.getAll);
+router.get('/:id/similar', ctrl.getSimilar);
 router.get('/:id', ctrl.getById);
 
 // Write - Admin only

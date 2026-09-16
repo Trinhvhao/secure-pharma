@@ -1,7 +1,7 @@
 /**
  * Auth Service - Authentication API calls
  */
-import api from './api';
+import api from '../api/axiosClient';
 
 const authService = {
     /**

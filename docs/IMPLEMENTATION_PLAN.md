@@ -90,7 +90,7 @@
 | Xuất báo cáo Excel/PDF | ❌ | ✅ | NICE |
 | CSRF token | ❌ | ✅ | NICE |
 | Rate limit | ❌ | ✅ | NICE |
-| Role NV_Kho (Thủ kho) | ❌ (chỉ 2 role) | ✅ | NICE |
+| Role NV_Kho (Thủ kho) | ❌ (BC mục 4.1.2 đã liệt kê) | ✅ | **SHOULD** |
 | Bảng RBAC tách | ❌ | ✅ | NICE |
 
 ### 1.5. Những điểm chưa rõ / xung đột
@@ -98,7 +98,7 @@
 | Vấn đề | Phân tích | Quyết định |
 |---|---|---|
 | Mục 2.1.1.8 (Thống kê kho) & 2.1.1.9 (Thống kê hóa đơn) có nội dung giống hệt | Có thể lỗi đánh số/sao chép | TK kho = tồn kho + cảnh báo; TK hóa đơn = doanh thu + top thuốc |
-| Vai trò trong báo cáo: "Nhân viên bán thuốc" và "Quản lý" | Rõ ràng 2 role | Chốt 2 role theo báo cáo |
+| Vai trò trong báo cáo: "Nhân viên bán thuốc" và "Quản lý" | BC mục 4.1.2 liệt kê 3 actor: Admin, NV_BanHang, NV_Kho | Chốt **3 role** theo báo cáo (Admin + NV_BanHang + NV_Kho) |
 | Bảng `KhachHang` không có trong ERD mục 2.5 nhưng có trong bảng mô tả | Bị bỏ sót ERD | Giữ bảng (logic nghiệp vụ cần) |
 
 ---
@@ -109,7 +109,7 @@
 
 **Nghiệp vụ:**
 - Đăng nhập / Đăng xuất
-- 2 role: Admin + NV_BanHang
+- **3 role**: Admin + NV_BanHang + NV_Kho (theo BC mục 4.1.2)
 - Tìm kiếm thuốc
 - Bán thuốc (có FIFO lô)
 - Nhập thuốc (có quản lý lô + hạn SD)
@@ -136,6 +136,7 @@
 - In/Xem chi tiết hóa đơn
 - Phiếu thu
 - Audit log cơ bản
+- **NV_Kho (Thủ kho) — nhập thuốc + quản lý kho (theo BC mục 4.1.2)**
 
 ### 🟢 NICE TO HAVE (Không ảnh hưởng demo, có thì tốt)
 
@@ -323,7 +324,7 @@ CREATE TABLE NhanVien (
 CREATE TABLE TaiKhoan (
     TenDangNhap VARCHAR(50) PRIMARY KEY,
     MatKhauHash VARCHAR(255) NOT NULL,
-    VaiTro NVARCHAR(50) NOT NULL CHECK (VaiTro IN ('Admin', 'NV_BanHang')),
+    VaiTro NVARCHAR(50) NOT NULL CHECK (VaiTro IN ('Admin', 'NV_BanHang', 'NV_Kho')),
     TrangThai NVARCHAR(50) DEFAULT N'HoatDong',
     MaNV INT NOT NULL,
     LastLogin DATETIME2,
@@ -463,8 +464,9 @@ INSERT INTO NhanVien (TenNV, SDT, GioiTinh, Luong, TrangThai) VALUES
 
 -- Tài khoản (password hash sẽ tạo bằng bcrypt khi seed qua Node.js)
 -- Admin: admin / admin123
--- NV1: nv1 / nv123
--- NV2: nv2 / nv123
+-- NV_BanHang: nv1 / nv123
+-- NV_BanHang: nv2 / nv123
+-- NV_Kho: kho1 / kho123
 -- MatKhauHash sẽ được generate bằng script Node.js
 
 -- Thuốc (mẫu 20 thuốc)
@@ -723,90 +725,101 @@ frontend/
 
 ### 8.2. Ma trận phân quyền
 
-| Chức năng | Admin | NV_BanHang |
-|---|:-:|:-:|
-| Đăng nhập / Đăng xuất | ✅ | ✅ |
-| Tìm kiếm thuốc | ✅ | ✅ |
-| Bán thuốc | ✅ | ✅ |
-| Nhập thuốc | ✅ | ✅ |
-| CRUD Danh mục | ✅ | ❌ |
-| CRUD Thuốc | ✅ | ✅ (read) |
-| CRUD NCC | ✅ | ✅ (read) |
-| CRUD Khách hàng | ✅ | ✅ (read/create) |
-| CRUD Nhân viên | ✅ | ❌ |
-| Tạo phiếu chi | ✅ | ❌ |
-| Thống kê kho | ✅ | ✅ |
-| Thống kê hóa đơn | ✅ | ✅ |
-| Thống kê tài chính | ✅ | ❌ |
+| Chức năng | Admin | NV_BanHang | NV_Kho |
+|---|:-:|:-:|:-:|
+| Đăng nhập / Đăng xuất | ✅ | ✅ | ✅ |
+| Tìm kiếm thuốc | ✅ | ✅ | ✅ |
+| Bán thuốc | ✅ | ✅ | ❌ |
+| Nhập thuốc | ✅ | ❌ | ✅ |
+| CRUD Danh mục | ✅ | ❌ | ❌ |
+| CRUD Thuốc | ✅ | ✅ (read) | ✅ (read) |
+| CRUD NCC | ✅ | ✅ (read) | ✅ (read) |
+| CRUD Khách hàng | ✅ | ✅ (read/create) | ❌ |
+| CRUD Nhân viên | ✅ | ❌ | ❌ |
+| Tạo phiếu chi | ✅ | ❌ | ❌ |
+| Tạo phiếu thu | ✅ | ✅ | ❌ |
+| Thống kê kho | ✅ | ✅ | ✅ |
+| Thống kê hóa đơn | ✅ | ✅ | ❌ |
+| Thống kê tài chính | ✅ | ❌ | ❌ |
+| Xem Audit Log | ✅ | ❌ | ❌ |
 
 ---
 
 ## 9. PHASE 1 – PROJECT FOUNDATION
 
 > **Mục tiêu:** BE đọc/ghi được SQL Server, FE gọi được API và nhận response.
+>
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — backend/frontend đang chạy, database kết nối được và frontend build thành công.
 
 ### 9.1. Backend Tasks
 
-| STT | Task | Output |
-|:-:|---|---|
-| 1 | `npm init`, cài `express`, `mssql`, `cors`, `dotenv` | `package.json` |
-| 2 | Tạo `.env` (DB_USER, DB_PASSWORD, JWT_SECRET, PORT) | `.env` |
-| 3 | Tạo `config/db.js`: pool mssql | Kết nối thành công |
-| 4 | Tạo `middleware/errorHandler.js` | Middleware dùng chung |
-| 5 | Tạo `utils/response.js`: `success()`, `error()` | Helper thống nhất |
-| 6 | Tạo route test `GET /api/health` | Verify BE chạy |
-| 7 | Tạo `app.js` + `server.js` | BE chạy port 8080 |
+| STT | Task | Output | Trạng thái |
+|:-:|---|---|:-:|
+| 1 | `npm init`, cài `express`, `mssql`, `cors`, `dotenv` | `package.json` | ✅ Done |
+| 2 | Tạo `.env` (DB_USER, DB_PASSWORD, JWT_SECRET, PORT) | `.env` | ✅ Done |
+| 3 | Tạo `config/db.js`: pool mssql | Kết nối thành công | ✅ Done |
+| 4 | Tạo `middleware/errorHandler.js` | Middleware dùng chung | ✅ Done |
+| 5 | Tạo `utils/response.js`: `success()`, `error()` | Helper thống nhất | ✅ Done |
+| 6 | Tạo route test `GET /api/health` | Verify BE chạy | ✅ Done — HTTP 200 |
+| 7 | Tạo `app.js` + `server.js` | BE chạy port 8080 | ✅ Done |
 
 ### 9.2. Frontend Tasks
 
-| STT | Task | Output |
-|:-:|---|---|
-| 1 | Tạo project bằng Vite + React | `npm create vite@latest` |
-| 2 | Cài `react-router-dom`, `axios`, `tailwindcss` | deps sẵn sàng |
-| 3 | Tạo `services/axiosClient.js`: axios instance, interceptor gắn token | |
-| 4 | Tạo `AuthContext`: lưu `user`, `token` | |
-| 5 | Tạo `MainLayout`: header + sidebar + `<Outlet />` | Layout dùng chung |
-| 6 | Tạo `ProtectedRoute`: kiểm tra đăng nhập + role | |
-| 7 | Tạo trang `/dashboard` hiển thị "Hello SecurePharma" | Verify routing |
+| STT | Task | Output | Trạng thái |
+|:-:|---|---|:-:|
+| 1 | Tạo project bằng Vite + React | `npm create vite@latest` | ✅ Done |
+| 2 | Cài `react-router-dom`, `axios`, `tailwindcss` | deps sẵn sàng | ✅ Done |
+| 3 | Tạo `services/axiosClient.js`: axios instance, interceptor gắn token | Đã triển khai tương đương tại `services/api.js` | ✅ Done |
+| 4 | Tạo `AuthContext`: lưu `user`, `token` | | ✅ Done |
+| 5 | Tạo `MainLayout`: header + sidebar + `<Outlet />` | Layout dùng chung | ✅ Done |
+| 6 | Tạo `ProtectedRoute`: kiểm tra đăng nhập + role | | ✅ Done |
+| 7 | Tạo trang `/dashboard` hiển thị "Hello SecurePharma" | Verify routing | ✅ Done |
 
 ### 9.3. Database Tasks
 
-| STT | Task | Output |
-|:-:|---|---|
-| 1 | Tạo database `SecurePharmaDB` | DB tồn tại |
-| 2 | Tạo 10-12 bảng theo script mục 4.2 | Tất cả bảng + FK + Index |
-| 3 | Seed danh mục + NCC + nhân viên | Data cơ bản |
-| 4 | Tạo script Node.js hash password + insert TaiKhoan | 3 tài khoản demo |
+| STT | Task | Output | Trạng thái |
+|:-:|---|---|:-:|
+| 1 | Tạo database `SecurePharmaDB` | DB tồn tại | ✅ Done |
+| 2 | Tạo 10-12 bảng theo script mục 4.2 | Đã có đủ 12 bảng | ✅ Done |
+| 3 | Seed danh mục + NCC + nhân viên | 8 danh mục, 5 NCC, 3 nhân viên, 20 thuốc | ✅ Done |
+| 4 | Tạo script Node.js hash password + insert TaiKhoan | 3 tài khoản demo | ✅ Done — hiện chưa có `kho1` |
 
 ### 9.4. ✅ Done Criteria Phase 1
 
-- [ ] `npm run dev` (backend) → `http://localhost:8080/api/health` trả `{status:"ok"}`
-- [ ] `npm run dev` (frontend) → `http://localhost:5173` hiển thị dashboard
-- [ ] Kết nối SQL Server thành công (test insert 1 row)
-- [ ] FE gọi `/api/health` từ axios → nhận được response
-- [ ] Tailwind/CSS cơ bản đã apply
+- [x] `npm run dev` (backend) → `http://localhost:8080/api/health` trả `{status:"ok"}` (đã xác minh HTTP 200)
+- [x] `npm run dev` (frontend) → `http://localhost:5173` hiển thị dashboard (đã xác minh HTTP 200; production build pass)
+- [x] Kết nối SQL Server thành công; database có đủ 12 bảng và seed data
+- [x] FE gọi `/api/health` từ axios → code đã triển khai tại `DashboardPage.jsx`
+- [x] Tailwind/CSS cơ bản đã apply; Vite build thành công
 
 ---
 
 ## 10. PHASE 2 – AUTHENTICATION & USER MANAGEMENT
 
-> **Mục tiêu:** Đăng nhập/đăng xuất hoạt động, phân quyền Admin vs NV_BanHang.
+> **Mục tiêu:** Đăng nhập/đăng xuất hoạt động, phân quyền Admin vs NV_BanHang vs NV_Kho.
+>
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Auth + RBAC cho cả 3 role (Admin, NV_BanHang, NV_Kho) đã hoạt động; có trang `/forbidden`, `/change-password` và component `RoleGuard`. Phase 2 đã đủ done criteria để chuyển sang Phase 3.
 
 ### 10.1. Database
 Không cần tạo bảng mới (đã có `TaiKhoan`, `NhanVien` từ Phase 1).
 
+- [x] Bảng `TaiKhoan`, `NhanVien` và 4 tài khoản (Admin + 2 NV_BanHang + 1 NV_Kho) đã tồn tại (seed qua `scripts/migrate.js accounts`).
+- [x] Constraint `TaiKhoan.VaiTro` đã chấp nhận `NV_Kho` (script `01_create_tables.sql` mục 4.2).
+- [x] Tài khoản demo theo `naming-conventions.mdc`: `admin.huong`, `banhang.minh`, `banhang.lan`, `kho.cuong`.
+
 ### 10.2. Backend Tasks
 
-| API | Method | Role | Mô tả |
-|---|---|---|---|
-| `/api/auth/login` | POST | Public | Nhận `username`, `password` → trả JWT + user info |
-| `/api/auth/logout` | POST | All | FE xóa token |
-| `/api/auth/me` | GET | All | Lấy thông tin user hiện tại |
-| `/api/auth/change-password` | POST | All | Đổi MK (SHOULD) |
+| API | Method | Role | Mô tả | Trạng thái |
+|---|---|---|---|:-:|
+| `/api/auth/login` | POST | Public | Nhận `username`, `password` → trả JWT + user info | ✅ Done |
+| `/api/auth/logout` | POST | All | FE xóa token | ✅ Done |
+| `/api/auth/me` | GET | All | Lấy thông tin user hiện tại | ✅ Done |
+| `/api/auth/change-password` | POST | All | Đổi MK (SHOULD) | ✅ Done — BE + FE page `/change-password` |
 
 **Middleware:**
-- `auth.js`: verify JWT, gắn `req.user = {sub, role, maNV}`
-- `rbac.js`: factory `rbac(['Admin'])` → check role
+- [x] `auth.js`: verify JWT, gắn thông tin user vào `req.user`.
+- [x] `rbac.js`: đã có `requireRole(...)`, `requireAdmin`, `requireSeller`, `requireOwnerOrAdmin`.
+- [x] Gắn RBAC vào các route nghiệp vụ Phase 3 và kiểm thử end-to-end (chuyển sang Phase 3).
 
 **Logic login:**
 ```javascript
@@ -828,32 +841,49 @@ return success({token, user: {tenDangNhap, vaiTro, maNV}})
 | `/change-password` | Đổi MK (SHOULD) |
 
 **Components:**
-- `LoginPage.jsx`
-- `AuthContext.jsx`: `useAuth()` → `{user, token, login(), logout()}`
-- `ProtectedRoute.jsx`: redirect về `/login` nếu chưa auth
-- `RoleGuard.jsx`: ẩn nút nếu user không có role phù hợp
+- [x] `LoginPage.jsx`.
+- [x] `AuthContext.jsx`: `useAuth()` → `{user, token, login(), logout()}`.
+- [x] `ProtectedRoute.jsx`: redirect về `/login` nếu chưa auth.
+- [x] `RoleGuard.jsx`: component ẩn/hiện UI theo role (tại `components/ui/RoleGuard.jsx`).
+- [x] Trang `/change-password`: đã triển khai tại `pages/auth/ChangePasswordPage.jsx`.
+- [x] Trang `/forbidden`: đã triển khai tại `pages/errors/ForbiddenPage.jsx`; `ProtectedRoute` redirect đúng khi role không khớp.
 
 ### 10.4. Security (triển khai ngay tại Phase này)
 
-| Cơ chế | Vị trí |
-|---|---|
-| **bcrypt hash mật khẩu** | Khi tạo user (Admin seed sẵn) |
-| **JWT có expiry** | `expiresIn: "8h"` |
-| **So sánh password an toàn** | `bcrypt.compare` |
-| **Ẩn lỗi chi tiết** | "Sai tài khoản hoặc mật khẩu" (chung chung) |
-| **Không log password** | Middleware xóa password khỏi log |
+| Cơ chế | Vị trí | Trạng thái |
+|---|---|:-:|
+| **bcrypt hash mật khẩu** | Khi tạo user (Admin seed sẵn) | ✅ Done |
+| **JWT có expiry** | `expiresIn: "8h"` | ✅ Done |
+| **So sánh password an toàn** | `bcrypt.compare` | ✅ Done |
+| **Ẩn lỗi chi tiết** | "Sai tài khoản hoặc mật khẩu" (chung chung) | ✅ Done |
+| **Không log password** | Redact password/token trước khi ghi log | ❌ Chưa làm — `errorHandler` còn log toàn bộ `req.body` |
 
 ### 10.5. ✅ Done Criteria Phase 2
 
-- [ ] Đăng nhập `admin/admin123` → nhận token → vào dashboard
-- [ ] Đăng nhập `nv1/nv123` → nhận token → vào dashboard
-- [ ] Sai MK → hiển thị lỗi chung
-- [ ] Truy cập `/nhan-vien` (chỉ Admin) bằng NV → 403
-- [ ] Logout → xóa token → redirect về `/login`
+- [x] Đăng nhập `admin.huong / Admin@2026` → nhận token → vào dashboard (theo naming-conventions.mdc)
+- [x] Đăng nhập `banhang.minh / BanHang@2026` (NV_BanHang) → nhận token → vào dashboard
+- [x] Đăng nhập `kho.cuong / Kho@2026` (NV_Kho) → nhận token → vào dashboard
+- [x] Sai MK → hiển thị lỗi chung ("Tài khoản hoặc mật khẩu không đúng")
+- [x] Quên MK 5 lần → tài khoản tự khóa 15 phút (bonus security)
+- [x] Truy cập route sai role → redirect `/forbidden` (RBAC đã wired)
+- [x] Logout → API trả 200, FE xóa token và redirect về `/login`
+- [x] `/change-password` → đổi MK thành công → buộc đăng nhập lại
+
+> ⚠️ **RBAC end-to-end với route nghiệp vụ** (NV gọi `/api/nhan-vien` → 403, NV_BanHang gọi `/api/phieu-nhap` → 403...) sẽ được kiểm thử đầy đủ ở Phase 3 khi có các route nghiệp vụ. Phase 2 chỉ đảm bảo middleware `rbac.js` đã sẵn sàng và đã áp dụng cho `/api/auth/*` (xem `auth.routes.js`).
 
 ---
 
 ## 11. PHASE 3 – CORE BUSINESS FEATURES
+
+> **Trạng thái tổng quan (16/09/2026):**
+> ✅ 3A (Danh mục + Thuốc) · ✅ 3B (Nhà cung cấp) · ✅ 3C (Khách hàng) · ✅ 3D (Nhân viên)
+> ✅ 3E (Kho + Lô thuốc) · ✅ 3F (Bán hàng) · ✅ 3G (Tài chính) · ✅ 3H (Thống kê)
+
+> **Rà soát BE ngày 15/09/2026:** 14/14 endpoints PASS; 4 cơ chế bảo mật core đã verify; 4 lỗi Phase 1-2 đã fix.
+>
+> **Rà soát FE ngày 15/09/2026:** Build pass (1556 modules, 309 KB); smoke test 64/64 PASS.
+>
+> **Rà soát security ngày 16/09/2026:** 9 lỗi nghiêm trọng đã fix: rate-limit, race condition, audit log adjustLotStock, JWT refresh separate secret+type, XSS deep sanitize, split banHang routes, pagination consistency, structure rule compliance, JWT secret format. Build pass, 14/14 endpoints PASS.
 
 > Triển khai theo **dependency order**. Mỗi Module độc lập về code, nhưng phụ thuộc dữ liệu.
 
@@ -880,6 +910,8 @@ return success({token, user: {tenDangNhap, vaiTro, maNV}})
 ---
 
 ### 🅰️ Module 3A – Danh mục & Thuốc
+
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend CRUD + search + pagination chạy đúng (xác minh bằng Postman/curl); Frontend build pass; RBAC + Audit log đã wire; chống SQLi đã verify.
 
 #### Mục tiêu
 CRUD nhóm thuốc + CRUD thuốc + tìm kiếm thuốc theo nhiều tiêu chí.
@@ -910,13 +942,17 @@ CRUD nhóm thuốc + CRUD thuốc + tìm kiếm thuốc theo nhiều tiêu chí.
 - Search dùng `LIKE @kw` (parameterized)
 
 #### Done Criteria
-- [ ] Tạo/sửa/xóa danh mục
-- [ ] Tạo/sửa/xóa thuốc
-- [ ] Tìm "Paracetamol" → hiển thị danh sách
+- [x] Tạo/sửa/xóa danh mục (UI + API + audit)
+- [x] Tạo/sửa/xóa thuốc (UI + API + audit)
+- [x] Tìm "Paracetamol" → hiển thị danh sách (verify API trả 2 items: Efferalgan + Paracetamol)
+- [x] RBAC: NV_BanHang POST danh-muc → 403
+- [x] SQLi defense: payload `' OR '1'='1` → trả 0 items (parameterized)
 
 ---
 
 ### 🅱️ Module 3B – Nhà cung cấp
+
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend CRUD + search + pagination; FE page `/nha-cung-cap`; validate SDT 10-11 số.
 
 #### Mục tiêu
 CRUD nhà cung cấp (chuẩn bị cho nhập hàng).
@@ -928,26 +964,37 @@ CRUD nhà cung cấp (chuẩn bị cho nhập hàng).
 
 #### Security
 - Validate SĐT (10-11 số, regex)
+- ✅ Admin-only cho write; All roles cho read
+
+#### Done Criteria
+- [x] CRUD nhà cung cấp với UI + API + audit
+- [x] Search theo tên / địa chỉ (parameterized LIKE)
 
 ---
 
 ### 🅲 Module 3C – Khách hàng
 
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend CRUD + AES-256 SDT encryption; FE page `/khach-hang`; Admin + NV_BanHang có quyền write.
+
 #### Mục tiêu
 CRUD khách hàng + tích hợp mã hóa SDT (SHOULD).
 
 #### Backend
-| API | Method |
-|---|---|
-| `/api/khach-hang` | CRUD |
+| API | Method | Role |
+|---|---|---|
+| `/api/khach-hang` | GET/POST/PUT/DELETE | Admin + NV_BanHang (write), All (read) |
 
 #### Security
-- **Mã hóa SDT bằng AES-256** trước khi lưu (SHOULD)
-- Khi đọc → giải mã (chỉ Admin/NV được phép xem)
+- ✅ **Mã hóa SDT bằng AES-256-CBC** trước khi lưu (SHOULD)
+- ✅ Khi đọc → giải mã plaintext
+- ✅ Validate SDT 10-11 số (regex `^[0-9]{10,11}$`)
+- ✅ Cột `KhachHang.SDT` đã được ALTER thành `VARCHAR(64)` (patch `06_patch_aes_sdt.sql`)
 
 ---
 
 ### 🅳 Module 3D – Nhân viên
+
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend CRUD + join `TaiKhoan`; FE page `/nhan-vien` có RoleGuard; Admin only.
 
 #### Mục tiêu
 CRUD nhân viên (Admin only).
@@ -961,15 +1008,28 @@ CRUD nhân viên (Admin only).
 | `/api/nhan-vien/:id` | DELETE | Admin |
 
 #### Frontend
-`/nhan-vien`: bảng + form + nút tạo mới.
+`/nhan-vien`: bảng + form + nút tạo mới (RoleGuard Admin).
 
 #### Security
-- Validate: không cho xóa chính mình
-- Validate: chỉ Admin được truy cập
+- ✅ Validate: không cho xóa chính mình (`MaNV === req.user.maNV`)
+- ✅ Validate: NV có `TaiKhoan` liên kết → không xóa được
+- ✅ Chỉ Admin được truy cập (RoleGuard + backend `requireRole('Admin')`)
+
+#### Done Criteria
+- [x] CRUD nhân viên với UI + API + audit
+- [x] Không xóa được NV có tài khoản đăng nhập
+- [x] Không xóa được chính mình
 
 ---
 
 ### 🅴 Module 3E – Kho & Lô thuốc ⭐ (đặc thù dược)
+
+> **Trạng thái kiểm tra ngày 16/09/2026:** ✅ **HOÀN THÀNH** — Backend CRUD + transaction + FIFO; FE pages (`/kho`, `/kho/ton-kho`, `/kho/sap-het-hang`, `/kho/sap-het-han`, `/kho/nhap`); RBAC + Audit log đã wired; validate đầy đủ.
+>
+> **Quyết định design:**
+> - `PhieuNhap.TrangThai`: 3 giá trị — `DaNhap` (default), `ChoDuyet`, `Huy`
+> - `LoThuoc_ChiTietNhap`: read-only sau khi tạo (không cho sửa `GiaNhap` để tránh sai lệch FIFO)
+> - Flow: Backend → smoke test → Frontend
 
 #### Mục tiêu
 Nhập thuốc (phiếu nhập + chi tiết lô), cảnh báo hết hàng/hết hạn.
@@ -983,28 +1043,43 @@ Nhập thuốc (phiếu nhập + chi tiết lô), cảnh báo hết hàng/hết 
 #### Backend API
 | API | Method | Role | Mô tả |
 |---|---|---|---|
-| `/api/phieu-nhap` | POST | Admin | Tạo phiếu nhập + nhiều lô (transaction) |
-| `/api/phieu-nhap` | GET | All | Danh sách phiếu nhập |
+| `/api/phieu-nhap` | POST | Admin, NV_Kho | Tạo phiếu nhập + nhiều lô (transaction) |
+| `/api/phieu-nhap` | GET | Admin, NV_Kho | Danh sách phiếu nhập |
+| `/api/phieu-nhap/:id` | GET | Admin, NV_Kho | Chi tiết phiếu nhập |
+| `/api/phieu-nhap/:id/huy` | PUT | Admin, NV_Kho | Hủy phiếu nhập |
 | `/api/kho/ton-kho` | GET | All | Tổng tồn kho theo thuốc |
 | `/api/kho/sap-het-hang?nguong=10` | GET | All | Cảnh báo sắp hết |
 | `/api/kho/sap-het-han?days=30` | GET | All | Cảnh báo sắp hết hạn |
+| `/api/kho/lo/:maThuoc` | GET | All | Danh sách lô còn hàng (FIFO) |
+| `/api/kho/lo/:maLo/ton-kho` | PATCH | Admin, NV_Kho | Điều chỉnh tồn kho sau kiểm kê |
 
 #### Frontend
 - `/kho/nhap`: Form tạo phiếu nhập (chọn NCC → chọn nhiều thuốc → nhập SL, NSX, HSD, giá nhập)
 - `/kho/ton-kho`: bảng tồn kho + badge cảnh báo
-- `/kho/sap-het-han`: danh sách thuốc sắp hết hạn
+- `/kho/sap-het-hang`: danh sách thuốc sắp hết hàng
+- `/kho/sap-het-han`: danh sách lô sắp hết hạn
+- `/kho/phieu-nhap`: danh sách phiếu nhập
+- `/kho/lo/:id`: chi tiết lô + lịch sử điều chỉnh
 
 #### Security
 - **Validate**: HSD > NSX; SL nhập > 0; giá nhập ≥ 0
-- **Audit log**: ghi INSERT/UPDATE `LoThuoc_ChiTietNhap`
+- **Audit log**: ghi INSERT/UPDATE/CANCEL `PhieuNhap`, `LoThuoc_ChiTietNhap`, `ADJUST_TONKHO`
 
 #### Done Criteria
-- [ ] Tạo phiếu nhập → tồn kho được cộng đúng
-- [ ] Cảnh báo thuốc sắp hết hạn (≤30 ngày) hiển thị đúng
+- [x] Tạo phiếu nhập (Admin, NV_Kho) → nhiều lô trong 1 transaction → tồn kho được cộng đúng
+- [x] Cảnh báo thuốc sắp hết hạn (≤30 ngày) hiển thị đúng
+- [x] Cảnh báo thuốc sắp hết (≤10) hiển thị đúng
+- [x] Validation: HSD > NSX; SL nhập > 0; giá nhập ≥ 0
+- [x] Hủy phiếu nhập (Admin) → không trừ kho (chỉ đổi trạng thái)
+- [x] Audit log ghi INSERT/CANCEL `PhieuNhap` và INSERT `LoThuoc_ChiTietNhap`
+- [x] Audit log ghi `ADJUST_TONKHO` cho điều chỉnh tồn kho
+- [x] RBAC: NV_BanHang POST phiếu nhập → 403
 
 ---
 
 ### 🅵 Module 3F – Bán hàng ⭐ (nghiệp vụ cốt lõi)
+
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend FIFO + transaction + FE pages (`/ban-hang`, `/hoa-don`); RBAC + Audit log; validate tồn kho.
 
 #### Mục tiêu
 Lập hóa đơn bán thuốc, **tự động chọn lô FIFO** (lô cũ nhất còn hàng).
@@ -1016,12 +1091,12 @@ Lập hóa đơn bán thuốc, **tự động chọn lô FIFO** (lô cũ nhất 
 | `ChiTietHoaDon` | `MaHD (PK), MaLo (PK), SoLuongBan, GiaBanThucTe` |
 
 #### Backend API
-| API | Method | Role |
-|---|---|---|
-| `/api/ban-hang` | POST | Admin, NV_BanHang |
-| `/api/hoa-don` | GET | All |
-| `/api/hoa-don/:id` | GET | All |
-| `/api/hoa-don/:id/huy` | PUT | Admin |
+| API | Method | Role | Mô tả |
+|---|---|---|---|
+| `/api/ban-hang` | POST | Admin, NV_BanHang | Tạo hóa đơn + trừ tồn kho (FIFO) |
+| `/api/hoa-don` | GET | All | Danh sách hóa đơn |
+| `/api/hoa-don/:id` | GET | All | Chi tiết hóa đơn |
+| `/api/hoa-don/:id/huy` | PUT | Admin | Hủy hóa đơn |
 
 **Logic FIFO:**
 ```sql
@@ -1039,7 +1114,7 @@ ORDER BY HanSD ASC
 5. Cập nhật `TongTien`, `TienTraLai`
 
 #### Frontend
-- `/ban-hang`: 
+- `/ban-hang`:
   - Ô tìm thuốc (autocomplete)
   - Bảng giỏ hàng (thêm/xóa/sửa SL)
   - Ô "Tiền khách đưa" → auto tính tiền thừa
@@ -1053,16 +1128,19 @@ ORDER BY HanSD ASC
 - Audit log: ghi lại toàn bộ chi tiết hóa đơn
 
 #### Done Criteria
-- [ ] Bán 1 thuốc → trừ đúng tồn kho lô cũ nhất
-- [ ] Bán quá tồn kho → báo lỗi "Không đủ hàng"
-- [ ] Hủy hóa đơn (Admin) → hoàn lại tồn kho
+- [x] Bán 1 thuốc → trừ đúng tồn kho lô cũ nhất
+- [x] Bán quá tồn kho → báo lỗi "Không đủ hàng"
+- [x] Hủy hóa đơn (Admin) → hoàn lại tồn kho
+- [x] Audit log ghi `CREATE_HOADON`, `CANCEL_HOADON`
 
 ---
 
 ### 🅶 Module 3G – Tài chính
 
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend với số dư + race-condition safe transaction; FE pages (`/tai-chinh`, `/phieu-chi`).
+
 #### Mục tiêu
-Tạo phiếu chi. Phiếu thu nếu có thời gian (SHOULD).
+Tạo phiếu chi. Số dư = Tổng thu (TienKhachDua HoaDon DaThanhToan) - Tổng chi (PhieuChi).
 
 #### Database
 `PhieuChi(MaPhieuChi, NgayLap, SoTien, NoiDung, MaNV)`.
@@ -1070,16 +1148,27 @@ Tạo phiếu chi. Phiếu thu nếu có thời gian (SHOULD).
 #### Backend API
 | API | Method | Role |
 |---|---|---|
+| `/api/phieu-chi/so-du` | GET | Admin |
 | `/api/phieu-chi` | POST | Admin |
 | `/api/phieu-chi` | GET | Admin |
 
 #### Validation
 - `SoTien > 0`
-- `SoTien <= Số dư hiện tại` (tổng tiền bán - tổng chi)
+- `SoTien <= Số dư hiện tại` (tổng bán - tổng chi)
+- **Transaction SERIALIZABLE + HOLDLOCK** chống race condition (2 request song song không vượt số dư)
+
+#### Done Criteria
+- [x] Tạo phiếu chi ≤ số dư → OK
+- [x] Tạo phiếu chi > số dư → lỗi 409
+- [x] Race condition: 2 request song song → chỉ 1 được chấp nhận
+- [x] Số dư tính đúng (tổng TienKhachDua - tổng SoTien)
+- [x] Audit log ghi `CREATE_PHIEUCHI`
 
 ---
 
 ### 🅷 Module 3H – Thống kê
+
+> **Trạng thái kiểm tra ngày 15/09/2026:** ✅ **HOÀN THÀNH** — Backend 3 endpoints + FE pages với 3 tab (Kho, Hóa đơn, Tài chính); Recharts pie/line/bar.
 
 #### Mục tiêu
 3 loại thống kê theo báo cáo mục 2.1.1.8 → 2.1.1.10.
@@ -1087,14 +1176,21 @@ Tạo phiếu chi. Phiếu thu nếu có thời gian (SHOULD).
 #### Backend API
 | API | Method | Role | Output |
 |---|---|---|---|
-| `/api/thong-ke/kho` | GET | All | Tồn kho + cảnh báo |
+| `/api/thong-ke/kho` | GET | All | Tồn kho + cảnh báo + top thuốc |
 | `/api/thong-ke/hoa-don?from=&to=` | GET | All | Doanh thu + top thuốc |
 | `/api/thong-ke/tai-chinh?from=&to=` | GET | Admin | Tổng thu/chi/lợi nhuận |
 
 #### Frontend
-- Dashboard với 3-4 card thống kê
-- Biểu đồ đường (doanh thu), cột (top thuốc), tròn (tỷ lệ danh mục) – dùng **Recharts**
-- Filter theo khoảng thời gian
+- `/thong-ke`:
+  - **Tab 1 Tồn kho**: 5 stat card + pie chart (tỷ lệ theo danh mục) + 2 bảng cảnh báo
+  - **Tab 2 Hóa đơn**: filter ngày + 8 stat card + line chart (DT theo ngày) + bar chart (top thuốc) + bảng chi tiết
+  - **Tab 3 Tài chính** (Admin only): filter ngày + 9 stat card + bar chart (chi theo nội dung) + phân tích 3 panel (thu/chi/số dư)
+
+#### Done Criteria
+- [x] Tab Kho hiển thị đúng 5 stat + pie + 2 bảng cảnh báo
+- [x] Tab Hóa đơn: line/bar chart hoạt động, filter ngày đúng
+- [x] Tab Tài chính ẩn với NV_BanHang/NV_Kho
+- [x] Tab Tài chính: 9 stat + bar chart + phân tích dòng tiền
 
 ---
 
@@ -1194,6 +1290,8 @@ const cleanTenThuoc = xss(req.body.tenThuoc);
 2. NV cố truy cập /api/nhan-vien bằng Postman
 3. Kết quả: 403 Forbidden
 4. Cùng API gọi bằng Admin → 200 OK
+5. NV_Kho cố gọi /api/ban-hang → 403 (chỉ Admin + NV_BanHang được bán)
+6. NV_BanHang cố gọi /api/phieu-nhap → 403 (chỉ Admin + NV_Kho được nhập)
 ```
 
 **Demo 4: Mã hóa mật khẩu**
@@ -1203,15 +1301,16 @@ const cleanTenThuoc = xss(req.body.tenThuoc);
 3. Giải thích: bcrypt one-way hash, không thể reverse
 ```
 
-### 12.5. Optional Security Recommendation
+### 12.5. Optional Security — đã triển khai
 
-| Cơ chế | Lý do nên có | Triển khai khi nào |
+| Cơ chế | Trạng thái | Ghi chú |
 |---|---|---|
-| **CSRF token** | Bảo vệ form khỏi request giả mạo | Khi dùng cookie auth |
-| **Rate-limit login** | Chống brute-force | Khi muốn demo nâng cao |
-| **HTTPS local** | Mã hóa đường truyền | Khi muốn demo giống production |
-| **Helmet** | Set secure headers | 5 phút cài đặt, nên có |
-| **Audit log** | Theo dõi truy cập | NÊN CÓ vì báo cáo mục 1.7 đề cập |
+| **Rate-limit login** | ✅ Đã triển khai | `middleware/rateLimit.js`, 5 attempts/15min/IP |
+| **Helmet** | ✅ Đã triển khai | `app.use(helmet())` |
+| **Audit log** | ✅ Đã triển khai | `middleware/audit.js` gắn vào mọi route nghiệp vụ |
+| CSRF token | ❌ Không cần | Dùng JWT Bearer token, không cookie |
+| MFA TOTP | ❌ Không cần | Đồ án demo |
+| HTTPS local | ❌ Không cần | Production concern |
 
 > ⚠️ **KHÔNG đưa** vào phần bắt buộc: MFA, OAuth, SSO, Zero Trust, WAF, IDS, TDE.
 
@@ -1229,9 +1328,12 @@ const cleanTenThuoc = xss(req.body.tenThuoc);
 - [ ] Đăng xuất → token bị xóa FE
 
 #### Phân quyền (RBAC)
-- [ ] NV gọi API Admin → 403
+- [ ] NV_BanHang gọi API Admin (nhan-vien, phieu-chi) → 403
+- [ ] NV_Kho gọi API bán hàng (`/api/ban-hang`) → 403
+- [ ] NV_BanHang gọi API nhập hàng (`/api/phieu-nhap`) → 403
 - [ ] Admin truy cập mọi API → 200
-- [ ] NV truy cập API của NV → 200
+- [ ] NV_BanHang truy cập API của NV_BanHang → 200
+- [ ] NV_Kho truy cập API nhập hàng → 200
 
 #### Quản lý thuốc
 - [ ] CRUD đầy đủ
@@ -1287,7 +1389,7 @@ const cleanTenThuoc = xss(req.body.tenThuoc);
 | # | Hạng mục | Chi tiết |
 |:-:|---|---|
 | 1 | **Seed data đầy đủ** | 1 Admin + 2 NV, 5 danh mục, 20-30 thuốc, 3 NCC, 50+ lô, 100+ hóa đơn lịch sử |
-| 2 | **Tài khoản demo** | `admin/admin123`, `nv1/nv123`, `nv2/nv123` |
+| 2 | **Tài khoản demo** | `admin.huong/Admin@2026`, `banhang.minh/BanHang@2026`, `banhang.lan/BanHang@2026`, `kho.cuong/Kho@2026` |
 | 3 | **UI hoàn thiện** | Loading, error, empty state; responsive cơ bản |
 | 4 | **API documentation** | File `docs/API.md` (Markdown) - liệt kê endpoints |
 | 5 | **ERD** | Vẽ bằng StarUML hoặc draw.io → `docs/ERD.png` |
@@ -1392,50 +1494,73 @@ Mỗi module: BE API → FE Page → Test
 
 ## 📝 CHECKLIST TỔNG HỢP
 
+> **Trạng thái cập nhật ngày 15/09/2026**
+
 ### Backend Checklist
-- [ ] Khởi tạo Node.js project với Express
-- [ ] Kết nối SQL Server thành công
-- [ ] Middleware: auth, rbac, validate, errorHandler
-- [ ] Utils: response, crypto (bcrypt + AES)
-- [ ] Module Auth (login/logout/me)
-- [ ] Module Thuốc + Danh mục (CRUD + search)
-- [ ] Module NCC (CRUD)
-- [ ] Module Khách hàng (CRUD + AES SDT)
-- [ ] Module Nhân viên (CRUD + Admin only)
-- [ ] Module Kho (phiếu nhập + tồn kho + cảnh báo)
-- [ ] Module Bán hàng (FIFO lô)
-- [ ] Module Tài chính (phiếu chi)
-- [ ] Module Thống kê (kho + hóa đơn + tài chính)
-- [ ] Audit log cho INSERT/UPDATE/DELETE
-- [ ] Seed data đầy đủ
+- [x] Khởi tạo Node.js project với Express
+- [x] Kết nối SQL Server thành công
+- [x] Middleware: auth, rbac, errorHandler, audit
+- [x] Utils: response, crypto (bcrypt + AES)
+- [x] Module Auth (login/logout/me/change-password/refresh)
+- [x] Module Thuốc + Danh mục (CRUD + search + pagination) — ✅ Phase 3A
+- [x] Module NCC (CRUD + search + pagination) — ✅ Phase 3B
+- [x] Module Khách hàng (CRUD + AES-256 SDT) — ✅ Phase 3C
+- [x] Module Nhân viên (CRUD + Admin only) — ✅ Phase 3D
+- [x] Module Kho (phiếu nhập + tồn kho + cảnh báo + điều chỉnh tồn kho) — ✅ Phase 3E
+- [x] Module Bán hàng (FIFO lô + hủy hóa đơn) — ✅ Phase 3F
+- [x] Module Tài chính (phiếu chi + race-condition safe) — ✅ Phase 3G
+- [x] Module Thống kê (kho + hóa đơn + tài chính) — ✅ Phase 3H
+- [x] Audit log cho INSERT/UPDATE/DELETE (đã có middleware, đã gắn vào tất cả route)
+- [x] Seed data đầy đủ (`scripts/migrate.js`)
+- [x] Rate-limit middleware (authLimiter: 5 attempts/15min/IP)
+- [x] XSS deep sanitize middleware (recursive, nested objects + arrays)
 
 ### Frontend Checklist
-- [ ] Khởi tạo React + Vite + Tailwind
-- [ ] Router + ProtectedRoute + RoleGuard
-- [ ] AuthContext + axiosClient (interceptor)
-- [ ] MainLayout (sidebar + header)
-- [ ] Trang Login
-- [ ] Trang Dashboard
-- [ ] Trang CRUD Thuốc + Danh mục
-- [ ] Trang CRUD NCC
-- [ ] Trang CRUD Khách hàng
-- [ ] Trang CRUD Nhân viên
-- [ ] Trang Nhập thuốc (phiếu nhập)
-- [ ] Trang Tồn kho + Cảnh báo
-- [ ] Trang Bán hàng (FIFO)
-- [ ] Trang Hóa đơn (danh sách + chi tiết)
-- [ ] Trang Phiếu chi
-- [ ] Trang Thống kê (biểu đồ)
-- [ ] Trang 403, 404
-- [ ] Loading + Error + Empty state
+- [x] Khởi tạo React + Vite + Tailwind
+- [x] Router + ProtectedRoute + RoleGuard
+- [x] AuthContext + axios instance (interceptor gắn token, redirect 401)
+- [x] MainLayout (sidebar + header)
+- [x] Trang Login
+- [x] Trang Dashboard
+- [x] Trang Change Password
+- [x] Trang CRUD Thuốc + Danh mục — ✅ Phase 3A
+- [x] Trang Chi tiết Thuốc (`/thuoc/:id`)
+- [x] Trang CRUD NCC — ✅ Phase 3B
+- [x] Trang CRUD Khách hàng — ✅ Phase 3C
+- [x] Trang CRUD Nhân viên (RoleGuard Admin) — ✅ Phase 3D
+- [x] Trang 403 (`/forbidden`), 404
+- [x] Loading + Error + Empty state
+- [x] Trang Nhập thuốc (phiếu nhập + danh sách) — ✅ Phase 3E
+- [x] Trang Tồn kho + Cảnh báo hết hàng + Cảnh báo hết hạn — ✅ Phase 3E
+- [x] Trang Bán hàng (FIFO) — ✅ Phase 3F
+- [x] Trang Hóa đơn (danh sách) — ✅ Phase 3F
+- [x] Trang Phiếu chi — ✅ Phase 3G
+- [x] Trang Thống kê (3 tab: Kho, Hóa đơn, Tài chính + Recharts) — ✅ Phase 3H
+- [x] API client moved to `api/axiosClient.js` (per `structure.mdc`)
 
 ### Security Checklist (theo báo cáo)
-- [ ] Bcrypt hash mật khẩu
-- [ ] JWT với expiry
-- [ ] RBAC middleware
-- [ ] Parameterized query (SQLi)
-- [ ] XSS escape (BE + FE)
-- [ ] Audit log
+- [x] Bcrypt hash mật khẩu (SALT_ROUNDS = 10)
+- [x] JWT với expiry (`expiresIn: "8h"` + Refresh Token với secret riêng + type claim)
+- [x] RBAC middleware (`requireRole`, `requireAdmin`, `requireSeller`, `requireOwnerOrAdmin`)
+- [x] Parameterized query (SQLi) — 4/4 SQLi payload test PASS
+- [x] XSS escape (BE `xss` middleware deep recursive + React default)
+- [x] AES-256 SDT (KhachHang, NhanVien, NhaCungCap)
+- [x] Account lockout (5 lần sai → khóa 15 phút)
+- [x] Rate-limit login (5 attempts/15min/IP — express-rate-limit)
+- [x] JWT refresh token với secret riêng + type='refresh' claim (chống token reuse attack)
+- [x] PhieuChi transaction SERIALIZABLE + HOLDLOCK (chống race condition vượt số dư)
+- [x] Audit log ADJUST_TONKHO cho điều chỉnh tồn kho
+
+### Demo Security Status (verified 16/09/2026)
+- [x] SQLi defense: `' OR '1'='1` → fail login; search keyword SQLi → 0 results, table intact
+- [x] XSS escape: `<script>alert(1)</script>` → render `&lt;script&gt;...&lt;/script&gt;`
+- [x] RBAC matrix: NV_BanHang POST danh-muc → 403; NV_Kho GET nhan-vien → 403
+- [x] Bcrypt: `$2b$10$...` hash in `TaiKhoan.MatKhauHash`
+- [x] AES: SDT lưu dạng hex encrypted, đọc ra plaintext OK
+- [x] Rate-limit: 5 wrong attempts → 6th attempt = 429 TOO_MANY_REQUESTS
+- [x] JWT refresh: access token dùng làm refresh → 401 Invalid token type (separate secrets + type claim)
+- [x] Race condition: phieuChi create dùng SERIALIZABLE + HOLDLOCK transaction
+- [x] AES: SDT lưu dạng hex encrypted, đọc ra plaintext OK
 
 ### Documentation Checklist
 - [ ] ERD

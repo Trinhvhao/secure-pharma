@@ -65,3 +65,22 @@ export function truncate(text, maxLength = 50) {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
 }
+
+/**
+ * Format currency ngắn gọn (cho Stat card, tránh tràn 2 dòng)
+ *  - >= 1 tỷ  → "1.09 tỷ ₫"
+ *  - >= 1 triệu → "234.5 tr ₫"
+ *  - < 1 triệu → "12.345 ₫"
+ *
+ * Giữ đủ chữ số có nghĩa (1 decimal khi rút gọn).
+ */
+export function formatCurrencyCompact(value) {
+    const n = Number(value) || 0;
+    if (n >= 1_000_000_000) {
+        return (n / 1_000_000_000).toFixed(2).replace(/\.?0+$/, '') + ' tỷ ₫';
+    }
+    if (n >= 1_000_000) {
+        return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' tr ₫';
+    }
+    return new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
+}

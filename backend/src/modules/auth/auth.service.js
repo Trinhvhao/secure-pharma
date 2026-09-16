@@ -1,5 +1,10 @@
 /**
  * Auth Service - Business logic cho authentication
+ *
+ * Bảo mật:
+ *  - JWT access token có `type='access'`, refresh có `type='refresh'`
+ *  - 2 secret RIÊNG (JWT_SECRET vs JWT_REFRESH_SECRET)
+ *  - Login fail → bcrypt verify (chậm), rate-limit ở middleware
  */
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -8,19 +13,36 @@ const db = require('../../config/db');
 const SALT_ROUNDS = 10;
 
 /**
- * Generate JWT token
- * @param {Object} user - User object
- * @returns {string} JWT token
+ * Generate access token (8h, dùng cho authenticate)
  */
-function generateToken(user) {
+function generateAccessToken(user) {
     return jwt.sign(
         {
             sub: user.TenDangNhap,
             role: user.VaiTro,
-            maNV: user.MaNV
+            maNV: user.MaNV,
+            type: 'access',
         },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+    );
+}
+
+/**
+ * Generate refresh token (7d, secret RIÊNG, có type='refresh')
+ * Dùng để cấp access token mới khi access hết hạn.
+ * TokenVersion được embed vào token để có thể revoke khi cần.
+ */
+function generateRefreshToken(user) {
+    return jwt.sign(
+        {
+            sub: user.TenDangNhap,
+            maNV: user.MaNV,
+            version: user.TokenVersion || 1,
+            type: 'refresh',
+        },
+        process.env.JWT_REFRESH_SECRET,
+        { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
     );
 }
 
@@ -96,20 +118,22 @@ async function login(username, password) {
             { username }
         );
         
-        // Generate token
-        const token = generateToken(user);
-        
+        // Generate tokens
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
         // Get employee info
         const employeeResult = await db.query(
             'SELECT MaNV, TenNV, SDT, GioiTinh FROM NhanVien WHERE MaNV = @maNV',
             { maNV: user.MaNV }
         );
         const employee = employeeResult.recordset[0];
-        
+
         return {
             success: true,
             data: {
-                token,
+                token: accessToken,
+                refreshToken,
                 user: {
                     username: user.TenDangNhap,
                     role: user.VaiTro,
@@ -132,7 +156,7 @@ async function login(username, password) {
 /**
  * Get user info by MaNV
  * @param {number} maNV - Employee ID
- * @returns {Object} User info
+ * @returns {Object} User info (camelCase để FE dùng được)
  */
 async function getUserInfo(maNV) {
     try {
@@ -144,8 +168,25 @@ async function getUserInfo(maNV) {
              WHERE tk.MaNV = @maNV`,
             { maNV }
         );
-        
-        return result.recordset[0] || null;
+
+        const row = result.recordset[0];
+        if (!row) return null;
+
+        // Map PascalCase → camelCase để khớp với shape /auth/login trả về
+        // Tránh bug: FE gọi /auth/me sẽ ghi đè user object từ login bằng raw row
+        return {
+            username: row.TenDangNhap,
+            role: row.VaiTro,
+            trangThai: row.TrangThai,
+            maNV: row.MaNV,
+            employee: {
+                maNV: row.MaNV,
+                tenNV: row.TenNV,
+                sdt: row.SDT,
+                gioiTinh: row.GioiTinh,
+                ngayVaoLam: row.NgayVaoLam,
+            },
+        };
     } catch (err) {
         console.error('Get user info error:', err);
         return null;
@@ -183,10 +224,11 @@ async function changePassword(username, currentPassword, newPassword) {
         // Hash new password
         const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
         
-        // Update password
+        // Update password + tăng TokenVersion để revoke refresh token cũ
         await db.query(
-            `UPDATE TaiKhoan 
-             SET MatKhauHash = @newHash, 
+            `UPDATE TaiKhoan
+             SET MatKhauHash = @newHash,
+                 TokenVersion = ISNULL(TokenVersion, 1) + 1,
                  UpdatedAt = GETDATE()
              WHERE TenDangNhap = @username`,
             { newHash, username }
@@ -201,32 +243,47 @@ async function changePassword(username, currentPassword, newPassword) {
 
 /**
  * Refresh token
- * @param {string} refreshToken - Refresh token
- * @returns {Object} Result with new access token
+ *
+ * Chỉ chấp nhận refresh token hợp lệ:
+ *  - Verify với JWT_REFRESH_SECRET (KHÔNG dùng chung access secret)
+ *  - Phải có claim `type='refresh'`
+ *  - User còn hoạt động
+ *  - TokenVersion phải khớp với DB (để revoke được khi đổi password)
+ *
+ * Trả về accessToken mới + refreshToken mới (rotation).
  */
 async function refreshToken(refreshToken) {
     try {
-        // Verify refresh token (simplified - in production, store in DB)
-        const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-        
-        // Get user from DB
+        // Verify với refresh secret RIÊNG + check type='refresh'
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        if (decoded.type !== 'refresh') {
+            return { success: false, message: 'Invalid token type' };
+        }
+
+        // Get user from DB để validate TokenVersion
         const result = await db.query(
             'SELECT * FROM TaiKhoan WHERE TenDangNhap = @username AND TrangThai = @status',
             { username: decoded.sub, status: 'HoatDong' }
         );
-        
+
         const user = result.recordset[0];
-        
         if (!user) {
             return { success: false, message: 'Invalid refresh token' };
         }
-        
-        // Generate new access token
-        const token = generateToken(user);
-        
+
+        // Validate TokenVersion để revoke token cũ khi đổi password
+        const tokenVersion = decoded.version || 1;
+        if (user.TokenVersion && tokenVersion !== user.TokenVersion) {
+            return { success: false, message: 'Token đã bị revoke' };
+        }
+
+        // Rotation: cấp access + refresh MỚI
         return {
             success: true,
-            data: { token }
+            data: {
+                token: generateAccessToken(user),
+                refreshToken: generateRefreshToken(user),
+            },
         };
     } catch (err) {
         return { success: false, message: 'Invalid or expired refresh token' };
@@ -238,5 +295,6 @@ module.exports = {
     getUserInfo,
     changePassword,
     refreshToken,
-    generateToken
+    generateAccessToken,
+    generateRefreshToken,
 };
