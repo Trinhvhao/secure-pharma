@@ -4,6 +4,62 @@
 const winston = require('../utils/logger');
 
 /**
+ * Sensitive fields to redact from logs
+ */
+const SENSITIVE_FIELDS = [
+    'password',
+    'currentPassword',
+    'newPassword',
+    'confirmPassword',
+    'matKhau',
+    'matKhauCu',
+    'matKhauMoi',
+    'token',
+    'refreshToken',
+    'jwt',
+    'authorization',
+    'cookie',
+    'secret',
+    'apiKey',
+    'accessToken',
+];
+
+/**
+ * Recursively redact sensitive fields from an object.
+ * Handles null, undefined, arrays, and nested objects.
+ * @param {any} obj - The object to redact
+ * @returns {any} - A copy with sensitive fields replaced by [REDACTED]
+ */
+function redactBody(obj) {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => redactBody(item));
+    }
+
+    if (typeof obj !== 'object') {
+        return obj;
+    }
+
+    const redacted = {};
+    for (const key of Object.keys(obj)) {
+        if (SENSITIVE_FIELDS.includes(key)) {
+            redacted[key] = '[REDACTED]';
+        } else {
+            const value = obj[key];
+            if (value !== null && typeof value === 'object') {
+                redacted[key] = redactBody(value);
+            } else {
+                redacted[key] = value;
+            }
+        }
+    }
+    return redacted;
+}
+
+/**
  * Not Found Handler - 404
  */
 function notFoundHandler(req, res, next) {
@@ -20,11 +76,11 @@ function notFoundHandler(req, res, next) {
  * Global Error Handler
  */
 function errorHandler(err, req, res, next) {
-    // Log error
+    // Log error with redacted body (no passwords/secrets)
     winston.error(`${err.name}: ${err.message}`, {
         originalUrl: req.originalUrl,
         method: req.method,
-        body: req.body,
+        body: redactBody(req.body),
         stack: err.stack,
         ip: req.ip
     });
@@ -122,5 +178,6 @@ module.exports = {
     notFoundHandler,
     errorHandler,
     asyncHandler,
-    AppError
+    AppError,
+    redactBody,
 };
