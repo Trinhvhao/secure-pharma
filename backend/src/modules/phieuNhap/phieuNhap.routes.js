@@ -19,6 +19,6 @@ router.use(requireRole('Admin', 'NV_Kho'));
 router.get('/', ctrl.getAll);
 router.get('/:id', ctrl.getById);
 router.post('/', writeLimiter, ctrl.create);
-router.put('/:id/huy', ctrl.cancel);
+router.put('/:id/huy', writeLimiter, ctrl.cancel);
 
 module.exports = router;
