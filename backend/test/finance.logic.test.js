@@ -7,14 +7,15 @@ test('cash balance uses net invoice revenue, not cash tendered before change', (
     assert.deepEqual(
         calculateFinanceSummary({
             doanhThu: 1150000,
+            tongThu: 1200000,
             tongChiPhieuChi: 655000,
             giaVonDaBan: 420000,
             giaTriNhapHang: 4560000,
         }),
         {
-            tongThu: 1150000,
+            tongThu: 1200000,
             tongChi: 655000,
-            soDuTienMat: 495000,
+            soDuTienMat: 545000,
             doanhThu: 1150000,
             giaVonDaBan: 420000,
             loiNhuanBanHang: 730000,
@@ -22,4 +23,3 @@ test('cash balance uses net invoice revenue, not cash tendered before change', (
         }
     );
 });
-

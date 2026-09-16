@@ -32,6 +32,7 @@ import {
     Tooltip,
     ResponsiveContainer,
     Cell,
+    Legend,
 } from 'recharts';
 import thongKeService from '../../services/thongKeService';
 import StatCard from '../../components/ui/StatCard';
@@ -41,6 +42,7 @@ import LoadingState from '../../components/ui/LoadingState';
 import DateRangePresets from '../../components/common/DateRangePresets';
 import DeltaIndicator from '../../components/common/DeltaIndicator';
 import { formatCurrency } from '../../utils/format';
+import ReportExportActions from '../../components/common/ReportExportActions';
 
 const todayStr = () => dayjs().format('YYYY-MM-DD');
 const monthAgoStr = () => dayjs().subtract(29, 'day').format('YYYY-MM-DD');
@@ -78,6 +80,37 @@ function ThongKeTaiChinhTab() {
     };
 
     const ss = data?.soSanhKyTruoc;
+    const reportSections = data ? [
+        {
+            title: 'Tổng quan tài chính',
+            rows: [
+                { 'Chỉ số': 'Tổng thu', 'Giá trị': data.tongQuan.tongThu },
+                { 'Chỉ số': 'Tổng chi', 'Giá trị': data.tongQuan.tongChi },
+                { 'Chỉ số': 'Doanh thu bán hàng', 'Giá trị': data.tongQuan.doanhThu },
+                { 'Chỉ số': 'Giá vốn đã bán', 'Giá trị': data.tongQuan.giaVonDaBan },
+                { 'Chỉ số': 'Lợi nhuận bán hàng', 'Giá trị': data.tongQuan.loiNhuanBanHang },
+                { 'Chỉ số': 'Số dư tiền mặt', 'Giá trị': data.tongQuan.soDuTienMat },
+                { 'Chỉ số': 'Số phiếu thu', 'Giá trị': data.tongQuan.soPhieuThu },
+                { 'Chỉ số': 'Số phiếu chi', 'Giá trị': data.tongQuan.soPhieuChi },
+            ],
+        },
+        {
+            title: 'Thu chi theo ngày',
+            rows: data.dailyChart.map((item) => ({
+                'Ngày': dayjs(item.ngay).format('DD/MM/YYYY'),
+                'Tổng thu': item.tongThu,
+                'Tổng chi': item.tongChi,
+            })),
+        },
+        {
+            title: 'Chi phí theo nội dung',
+            rows: data.chiTheoNoiDung.map((item) => ({
+                'Nội dung': item.noiDung,
+                'Số lần': item.soLan,
+                'Tổng tiền': item.tongTien,
+            })),
+        },
+    ] : [];
 
     // Stat cards: 5 chỉ số chính + 4 phụ (2 hàng)
     const mainStats = data
@@ -209,6 +242,16 @@ function ThongKeTaiChinhTab() {
                     toDate={toDate}
                     onApply={handleApply}
                     loading={loading}
+                    actions={(
+                      <ReportExportActions
+                        filename={`bao-cao-tai-chinh-${fromDate}-${toDate}`}
+                        title="Báo cáo tài chính"
+                        subtitle={`Từ ${dayjs(fromDate).format('DD/MM/YYYY')} đến ${dayjs(toDate).format('DD/MM/YYYY')}`}
+                        sections={reportSections}
+                        disabled={!data || loading}
+                        className="justify-start lg:justify-end"
+                      />
+                    )}
                 />
             </Card>
 

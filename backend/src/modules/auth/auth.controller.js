@@ -34,6 +34,7 @@ const login = asyncHandler(async (req, res) => {
  * Logout current user
  */
 const logout = asyncHandler(async (req, res) => {
+    await authService.revokeRefreshTokens(req.user.username);
     // Log logout
     await logAudit(req, 'LOGOUT');
     

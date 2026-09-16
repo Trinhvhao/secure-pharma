@@ -26,12 +26,39 @@ api.interceptors.request.use(
     }
 );
 
-// Response interceptor - handle errors
+let refreshPromise = null;
+
+function clearSessionAndRedirect() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+    }
+}
+
+async function rotateTokens() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) throw new Error('Missing refresh token');
+
+    // Dùng axios gốc để request refresh không đi qua interceptor này.
+    const response = await axios.post('/api/auth/refresh', { refreshToken }, {
+        timeout: 30000,
+        headers: { 'Content-Type': 'application/json' },
+    });
+    const tokens = response.data?.data;
+    if (!tokens?.token || !tokens?.refreshToken) throw new Error('Invalid refresh response');
+    localStorage.setItem('token', tokens.token);
+    localStorage.setItem('refreshToken', tokens.refreshToken);
+    return tokens.token;
+}
+
+// Response interceptor - tự refresh một lần rồi retry request ban đầu.
 api.interceptors.response.use(
     (response) => {
         return response;
     },
-    (error) => {
+    async (error) => {
         // Handle network errors
         if (!error.response) {
             console.error('Network error:', error.message);
@@ -49,15 +76,28 @@ api.interceptors.response.use(
             });
         }
 
-        // Handle 401 - unauthorized
-        if (error.response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            
-            // Redirect to login if not already there
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+        const originalRequest = error.config;
+        const isAuthRequest = originalRequest?.url?.includes('/auth/login')
+            || originalRequest?.url?.includes('/auth/refresh');
+
+        if (error.response.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
+            originalRequest._retry = true;
+            try {
+                if (!refreshPromise) {
+                    refreshPromise = rotateTokens().finally(() => { refreshPromise = null; });
+                }
+                const accessToken = await refreshPromise;
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                return api(originalRequest);
+            } catch (refreshError) {
+                clearSessionAndRedirect();
+                return Promise.reject(refreshError);
             }
+        }
+
+        if (error.response.status === 401 && !isAuthRequest) {
+            clearSessionAndRedirect();
         }
 
         return Promise.reject(error);

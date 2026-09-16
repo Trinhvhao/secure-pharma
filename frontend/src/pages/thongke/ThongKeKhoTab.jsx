@@ -38,6 +38,7 @@ import Card from '../../components/ui/Card';
 import Table from '../../components/ui/Table';
 import LoadingState from '../../components/ui/LoadingState';
 import { formatCurrency } from '../../utils/format';
+import ReportExportActions from '../../components/common/ReportExportActions';
 
 const CATEGORY_COLORS = [
     '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444',
@@ -67,6 +68,43 @@ function ThongKeKhoTab() {
     if (!data) return null;
 
     const { tongQuan, tonKhoTheoDanhMuc, topSapHetHang, topSapHetHan } = data;
+    const reportSections = [
+        {
+            title: 'Tổng quan kho',
+            rows: [
+                { 'Chỉ số': 'Tổng tồn kho', 'Giá trị': tongQuan.tongSoLuongTon },
+                { 'Chỉ số': 'Số mặt hàng', 'Giá trị': tongQuan.soMatHang },
+                { 'Chỉ số': 'Sắp hết hàng', 'Giá trị': tongQuan.soLuongSapHetHang },
+                { 'Chỉ số': 'Sắp hết hạn', 'Giá trị': tongQuan.soLuongSapHetHan },
+                { 'Chỉ số': 'Giá trị tồn kho', 'Giá trị': tongQuan.giaTriTonKho },
+            ],
+        },
+        {
+            title: 'Tồn kho theo danh mục',
+            rows: tonKhoTheoDanhMuc.map((item) => ({
+                'Danh mục': item.tenDM,
+                'Số lượng tồn': item.soLuongTon,
+            })),
+        },
+        {
+            title: 'Thuốc sắp hết hàng',
+            rows: topSapHetHang.map((item) => ({
+                'Mã thuốc': item.maThuoc,
+                'Tên thuốc': item.tenThuoc,
+                'Số lượng tồn': item.soLuongTon,
+            })),
+        },
+        {
+            title: 'Lô sắp hết hạn',
+            rows: topSapHetHan.map((item) => ({
+                'Mã lô': item.maLo,
+                'Tên thuốc': item.tenThuoc,
+                'Số lượng tồn': item.soLuongTon,
+                'Hạn sử dụng': dayjs(item.hanSD).format('DD/MM/YYYY'),
+                'Số ngày còn lại': item.soNgayConLai,
+            })),
+        },
+    ];
 
     // Pie chart data
     const pieData = tonKhoTheoDanhMuc.map((item, idx) => ({
@@ -231,6 +269,12 @@ function ThongKeKhoTab() {
 
     return (
         <div className="space-y-6 animate-fade-in">
+            <ReportExportActions
+                filename={`bao-cao-kho-${dayjs().format('YYYY-MM-DD')}`}
+                title="Báo cáo tồn kho"
+                subtitle={`Dữ liệu tại ${dayjs().format('DD/MM/YYYY HH:mm')}`}
+                sections={reportSections}
+            />
             {/* Stat cards chính */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
                 {mainStats.map((s) => (

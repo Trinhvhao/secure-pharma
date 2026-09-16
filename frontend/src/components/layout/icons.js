@@ -14,6 +14,7 @@ import {
   BarChart3,
   KeyRound,
   FolderTree,
+  ReceiptText,
 } from 'lucide-react';
 
 export const ICON_MAP = {
@@ -28,4 +29,5 @@ export const ICON_MAP = {
   BarChart3,
   KeyRound,
   FolderTree,
+  ReceiptText,
 };

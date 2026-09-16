@@ -34,6 +34,13 @@ export const MENU_ITEMS = [
         roles: ['Admin', 'NV_BanHang']          // NV_Kho không được bán
     },
     {
+        key: 'phieuthu',
+        label: 'Phiếu thu',
+        icon: 'ReceiptText',
+        path: '/phieu-thu',
+        roles: ['Admin', 'NV_BanHang']
+    },
+    {
         key: 'thuoc',
         label: 'Quản lý thuốc',
         icon: 'Pill',

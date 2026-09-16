@@ -12,9 +12,10 @@ const thongKeSource = fs.readFileSync(
     'utf8'
 );
 
-test('cash-fund calculations sum invoice totals instead of tendered cash', () => {
+test('cash-fund calculations use effective receipts instead of tendered cash', () => {
     assert.doesNotMatch(phieuChiSource, /SUM\(TienKhachDua\)/);
-    assert.match(phieuChiSource, /SUM\(TongTien\)/);
+    assert.match(phieuChiSource, /SUM\(pt\.SoTien\)/);
+    assert.match(phieuChiSource, /pt\.MaHD IS NULL OR hd\.TrangThai = N'DaThanhToan'/);
 });
 
 test('financial profit uses cost of sold lots', () => {

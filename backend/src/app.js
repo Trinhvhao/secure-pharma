@@ -75,6 +75,7 @@ const phieuNhapRouter = require('./modules/phieuNhap/phieuNhap.routes');
 const banHangRouter = require('./modules/banHang/banHang.routes');
 const hoaDonRouter = require('./modules/banHang/hoaDon.routes');
 const phieuChiRouter = require('./modules/phieuChi/phieuChi.routes');
+const phieuThuRouter = require('./modules/phieuThu/phieuThu.routes');
 const thongKeRouter = require('./modules/thongKe/thongKe.routes');
 
 // ========== API Routes (Phase 2) ==========
@@ -105,6 +106,7 @@ app.use('/api/hoa-don', hoaDonRouter);
 
 // ========== API Routes (Phase 3G - Tài chính) ==========
 app.use('/api/phieu-chi', phieuChiRouter);
+app.use('/api/phieu-thu', phieuThuRouter);
 
 // ========== API Routes (Phase 3H - Thống kê) ==========
 app.use('/api/thong-ke', thongKeRouter);

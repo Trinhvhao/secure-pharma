@@ -561,7 +561,7 @@ DB_ENCRYPT=true
 
 # JWT
 JWT_SECRET=your-super-secret-key-change-this
-JWT_EXPIRES_IN=8h
+JWT_EXPIRES_IN=15m
 
 # AES
 AES_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -829,7 +829,7 @@ if (!user) return error(401, "Sai tài khoản hoặc mật khẩu")
 const ok = await bcrypt.compare(password, user.MatKhauHash)
 if (!ok) return error(401, "Sai tài khoản hoặc mật khẩu")
 if (user.TrangThai === "Khoa") return error(403, "Tài khoản bị khóa")
-const token = jwt.sign({sub: user.TenDangNhap, role: user.VaiTro, maNV: user.MaNV}, SECRET, {expiresIn: "8h"})
+const token = jwt.sign({sub: user.TenDangNhap, role: user.VaiTro, maNV: user.MaNV}, SECRET, {expiresIn: "15m"})
 return success({token, user: {tenDangNhap, vaiTro, maNV}})
 ```
 
@@ -853,7 +853,7 @@ return success({token, user: {tenDangNhap, vaiTro, maNV}})
 | Cơ chế | Vị trí | Trạng thái |
 |---|---|:-:|
 | **bcrypt hash mật khẩu** | Khi tạo user (Admin seed sẵn) | ✅ Done |
-| **JWT có expiry** | `expiresIn: "8h"` | ✅ Done |
+| **JWT có expiry** | `expiresIn: "15m"` | ✅ Done |
 | **So sánh password an toàn** | `bcrypt.compare` | ✅ Done |
 | **Ẩn lỗi chi tiết** | "Sai tài khoản hoặc mật khẩu" (chung chung) | ✅ Done |
 | **Không log password** | Redact password/token trước khi ghi log | ❌ Chưa làm — `errorHandler` còn log toàn bộ `req.body` |
@@ -1255,7 +1255,7 @@ const cleanTenThuoc = xss(req.body.tenThuoc);
 |---|---|---|
 | **Mật khẩu** | bcrypt (one-way hash) | `bcrypt.hash()` khi tạo, `bcrypt.compare()` khi login |
 | **SDT (SHOULD)** | AES-256 (two-way) | `crypto.createCipheriv('aes-256-cbc', ...)` |
-| **Token** | JWT signed | `jwt.sign({sub, role}, SECRET, {expiresIn: "8h"})` |
+| **Token** | JWT signed | `jwt.sign({sub, role}, SECRET, {expiresIn: "15m"})` |
 
 ### 12.3. Security Implementation Map
 
@@ -1508,7 +1508,7 @@ Mỗi module: BE API → FE Page → Test
 - [x] Module Nhân viên (CRUD + Admin only) — ✅ Phase 3D
 - [x] Module Kho (phiếu nhập + tồn kho + cảnh báo + điều chỉnh tồn kho) — ✅ Phase 3E
 - [x] Module Bán hàng (FIFO lô + hủy hóa đơn) — ✅ Phase 3F
-- [x] Module Tài chính (phiếu chi + race-condition safe) — ✅ Phase 3G
+- [x] Module Tài chính (phiếu thu tự động/thủ công + phiếu chi race-condition safe) — ✅ Phase 3G
 - [x] Module Thống kê (kho + hóa đơn + tài chính) — ✅ Phase 3H
 - [x] Audit log cho INSERT/UPDATE/DELETE (đã có middleware, đã gắn vào tất cả route)
 - [x] Seed data đầy đủ (`scripts/migrate.js`)
@@ -1535,19 +1535,22 @@ Mỗi module: BE API → FE Page → Test
 - [x] Trang Bán hàng (FIFO) — ✅ Phase 3F
 - [x] Trang Hóa đơn (danh sách) — ✅ Phase 3F
 - [x] Trang Phiếu chi — ✅ Phase 3G
+- [x] Trang Phiếu thu (Admin, NV_BanHang) — ✅ Phase 3G
+- [x] In/Lưu PDF và xuất HTML hóa đơn — ✅ Phase 3F
+- [x] Xuất báo cáo Excel (CSV) / PDF cho 3 tab thống kê — ✅ Phase 3H
 - [x] Trang Thống kê (3 tab: Kho, Hóa đơn, Tài chính + Recharts) — ✅ Phase 3H
 - [x] API client moved to `api/axiosClient.js` (per `structure.mdc`)
 
 ### Security Checklist (theo báo cáo)
 - [x] Bcrypt hash mật khẩu (SALT_ROUNDS = 10)
-- [x] JWT với expiry (`expiresIn: "8h"` + Refresh Token với secret riêng + type claim)
+- [x] JWT access 15 phút + Refresh Token 7 ngày với secret riêng + type claim
 - [x] RBAC middleware (`requireRole`, `requireAdmin`, `requireSeller`, `requireOwnerOrAdmin`)
 - [x] Parameterized query (SQLi) — 4/4 SQLi payload test PASS
 - [x] XSS escape (BE `xss` middleware deep recursive + React default)
 - [x] AES-256 SDT (KhachHang, NhanVien, NhaCungCap)
 - [x] Account lockout (5 lần sai → khóa 15 phút)
 - [x] Rate-limit login (5 attempts/15min/IP — express-rate-limit)
-- [x] JWT refresh token với secret riêng + type='refresh' claim (chống token reuse attack)
+- [x] JWT refresh token rotation một lần dùng + thu hồi khi logout/đổi mật khẩu
 - [x] PhieuChi transaction SERIALIZABLE + HOLDLOCK (chống race condition vượt số dư)
 - [x] Audit log ADJUST_TONKHO cho điều chỉnh tồn kho
 

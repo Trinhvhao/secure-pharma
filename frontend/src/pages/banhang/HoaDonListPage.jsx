@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
-import { Receipt, Eye, Ban } from 'lucide-react';
+import { Receipt, Eye, Ban, Printer, Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import banHangService from '../../services/banHangService';
 import PageHeader from '../../components/ui/PageHeader';
@@ -24,6 +24,7 @@ import RoleGuard from '../../components/ui/RoleGuard';
 import ExpiryBadge from '../../components/ui/ExpiryBadge';
 import { DEFAULT_PAGE_SIZE } from '../../utils/constants';
 import { formatCurrency } from '../../utils/format';
+import { downloadInvoiceHtml, printInvoice } from './invoiceDocument';
 
 const STATUS_VARIANT = { DaThanhToan: 'success', DaHuy: 'danger' };
 const STATUS_LABEL = { DaThanhToan: 'Đã thanh toán', DaHuy: 'Đã hủy' };
@@ -116,6 +117,12 @@ function HoaDonListPage() {
       toast.error(err.response?.data?.error?.message || 'Không thể hủy');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (!printInvoice(viewItem)) {
+      toast.error('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép pop-up và thử lại.');
     }
   };
 
@@ -353,10 +360,15 @@ function HoaDonListPage() {
               </table>
             </div>
 
-            {/* Huy */}
-            {viewItem.TrangThai === 'DaThanhToan' && (
-              <RoleGuard roles={['Admin']}>
-                <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4">
+              <Button variant="secondary" icon={<Download />} onClick={() => downloadInvoiceHtml(viewItem)}>
+                Tải HTML
+              </Button>
+              <Button variant="primary" icon={<Printer />} onClick={handlePrint}>
+                In / Lưu PDF
+              </Button>
+              {viewItem.TrangThai === 'DaThanhToan' && (
+                <RoleGuard roles={['Admin']}>
                   <Button
                     variant="danger"
                     icon={<Ban />}
@@ -364,9 +376,9 @@ function HoaDonListPage() {
                   >
                     Hủy hóa đơn
                   </Button>
-                </div>
-              </RoleGuard>
-            )}
+                </RoleGuard>
+              )}
+            </div>
           </div>
         )}
       </Modal>

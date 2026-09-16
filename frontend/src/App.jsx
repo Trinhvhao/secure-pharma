@@ -41,6 +41,7 @@ import HoaDonListPage from './pages/banhang/HoaDonListPage';
 // Phase 3G - Tài chính
 import TaiChinhPage from './pages/taichinh/TaiChinhPage';
 import PhieuChiListPage from './pages/taichinh/PhieuChiListPage';
+import PhieuThuListPage from './pages/taichinh/PhieuThuListPage';
 
 // Phase 3H - Thống kê
 import ThongKePage from './pages/thongke/ThongKePage';
@@ -93,6 +94,7 @@ function App() {
                         {/* Phase 3G - Tài chính */}
                         <Route path="/tai-chinh" element={<TaiChinhPage />} />
                         <Route path="/phieu-chi" element={<PhieuChiListPage />} />
+                        <Route path="/phieu-thu" element={<PhieuThuListPage />} />
 
                         {/* Phase 3H - Thống kê (All roles - Admin-only tabs sẽ tự ẩn) */}
                         <Route path="/thong-ke" element={<ThongKePage />} />

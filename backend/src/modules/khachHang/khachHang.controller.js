@@ -56,8 +56,15 @@ const create = asyncHandler(async (req, res) => {
         return error(res, 'Số điện thoại phải là 10-11 chữ số', 400);
     }
 
-    const item = await khService.create({ tenKH, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
-    return created(res, item, 'Tạo khách hàng thành công');
+    try {
+        const item = await khService.create({ tenKH, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
+        return created(res, item, 'Tạo khách hàng thành công');
+    } catch (err) {
+        if (err.code === 'DUPLICATE_SDT') {
+            return error(res, err.message, 409); // Conflict
+        }
+        throw err;
+    }
 });
 
 const update = asyncHandler(async (req, res) => {
@@ -67,9 +74,16 @@ const update = asyncHandler(async (req, res) => {
         return error(res, 'Số điện thoại phải là 10-11 chữ số', 400);
     }
 
-    const item = await khService.update(parseInt(req.params.id, 10), { tenKH, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
-    if (!item) return notFound(res, `Không tìm thấy KH #${req.params.id}`);
-    return success(res, item, 'Cập nhật thành công');
+    try {
+        const item = await khService.update(parseInt(req.params.id, 10), { tenKH, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
+        if (!item) return notFound(res, `Không tìm thấy KH #${req.params.id}`);
+        return success(res, item, 'Cập nhật thành công');
+    } catch (err) {
+        if (err.code === 'DUPLICATE_SDT') {
+            return error(res, err.message, 409); // Conflict
+        }
+        throw err;
+    }
 });
 
 const remove = asyncHandler(async (req, res) => {

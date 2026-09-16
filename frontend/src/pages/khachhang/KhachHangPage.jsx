@@ -377,8 +377,10 @@ function KhachHangPage() {
             fetchStats();
         } catch (err) {
             const msg = err.response?.data?.error?.message || 'Thao tác thất bại';
+            // 409 = Conflict (trùng SDT)
+            const isConflict = err.response?.status === 409;
             setFormError(msg);
-            toast.error(msg);
+            toast.error(msg, { icon: isConflict ? '📞' : undefined });
         } finally {
             setSubmitting(false);
         }

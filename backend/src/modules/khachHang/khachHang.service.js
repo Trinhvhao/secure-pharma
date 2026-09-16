@@ -260,7 +260,38 @@ async function getStats() {
     };
 }
 
+/**
+ * Tìm MaKH trùng SDT (AES-encrypted). Trả về MaKH nếu tìm thấy, null nếu chưa tồn tại.
+ * Dùng cho cả create và update.
+ */
+async function findBySDT(sdt, excludeMaKH = null) {
+    if (!sdt) return null;
+    const encrypted = encryptAES(sdt);
+    if (!encrypted) return null;
+
+    const r = excludeMaKH !== null
+        ? await db.query(
+            `SELECT MaKH FROM KhachHang WHERE SDT = @sdt AND MaKH != @excludeMaKH`,
+            { sdt: encrypted, excludeMaKH }
+        )
+        : await db.query(
+            `SELECT MaKH FROM KhachHang WHERE SDT = @sdt`,
+            { sdt: encrypted }
+        );
+    return r.recordset[0]?.MaKH || null;
+}
+
 async function create(data) {
+    // Kiểm tra trùng SDT trước khi tạo
+    if (data.sdt) {
+        const existingMaKH = await findBySDT(data.sdt);
+        if (existingMaKH) {
+            const err = new Error(`Số điện thoại đã được đăng ký cho khách hàng khác (Mã #${existingMaKH})`);
+            err.code = 'DUPLICATE_SDT';
+            throw err;
+        }
+    }
+
     const r = await db.query(
         `INSERT INTO KhachHang (TenKH, SDT, GioiTinh)
          OUTPUT INSERTED.MaKH, INSERTED.TenKH, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.NgayTao, INSERTED.UpdatedAt
@@ -276,6 +307,16 @@ async function create(data) {
 }
 
 async function update(maKH, data) {
+    // Kiểm tra trùng SDT (loại trừ chính record đang sửa)
+    if (data.sdt) {
+        const existingMaKH = await findBySDT(data.sdt, maKH);
+        if (existingMaKH) {
+            const err = new Error(`Số điện thoại đã được đăng ký cho khách hàng khác (Mã #${existingMaKH})`);
+            err.code = 'DUPLICATE_SDT';
+            throw err;
+        }
+    }
+
     const r = await db.query(
         `UPDATE KhachHang
          SET TenKH = @tenKH, SDT = @sdt, GioiTinh = @gioiTinh, UpdatedAt = GETDATE()

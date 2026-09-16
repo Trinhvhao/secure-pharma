@@ -7,12 +7,14 @@ Mọi tài liệu của dự án SecurePharma được lưu trữ tại folder n
 | File | Mô tả |
 |---|---|
 | [`INSTALL.md`](./INSTALL.md) | Hướng dẫn cài đặt & chạy dự án trên máy local |
+| [`LEARNING_GUIDE.md`](./LEARNING_GUIDE.md) | 📚 Hướng dẫn học & phân tích dự án — kiến trúc, bảo mật, cách đọc code |
 | [`FEATURES.md`](./FEATURES.md) | Phân tích chức năng (theo đề bài) |
 | [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) | Kế hoạch triển khai 6 Phase |
 | [`UI_DESIGN_SYSTEM.md`](./UI_DESIGN_SYSTEM.md) | 🎨 Design system (màu, component, pattern dược phẩm) |
 | [`UI_REVIEW.md`](./UI_REVIEW.md) | Audit 6 trụ cột UI/UX của 11 page (15/09/2026) |
 | [`UI_REDESIGN_PLAN.md`](./UI_REDESIGN_PLAN.md) | Kế hoạch cải thiện FE 6 phase (15/09/2026) |
 | [`CRUD_MODAL_AUDIT.md`](./CRUD_MODAL_AUDIT.md) | 🔍 Audit + test plan + đề xuất cải thiện modal CRUD (16/09/2026) |
+| [`API.md`](./API.md) | 🔌 Tài liệu tham chiếu Backend API (~70 endpoints, 13 module) |
 
 ## 🗄️ Archive (đã đóng băng)
 

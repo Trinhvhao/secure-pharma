@@ -2,8 +2,8 @@
  * PhieuChi Service - Quản lý phiếu chi (chi phí) - Admin only
  *
  * Nghiệp vụ:
- *  - Tạo phiếu chi (tiền ra) — validate số dư (tổng bán - tổng chi)
- *  - Số dư = SUM(TongTien) từ HoaDon(DaThanhToan) - SUM(SoTien) từ PhieuChi
+ *  - Tạo phiếu chi (tiền ra) — validate số dư (phiếu thu hiệu lực - phiếu chi)
+ *  - Phiếu thu gắn hóa đơn hủy không còn hiệu lực kế toán
  *  - Lịch sử phiếu chi (filter theo keyword + khoảng ngày + pagination)
  *  - Stats cho trang TaiChinh: tổng quan + chart data theo ngày + top chi phí
  *
@@ -15,16 +15,17 @@ const db = require('../../config/db');
 
 /**
  * Tính số dư quỹ hiện tại = Tổng thu - Tổng chi
- *  - Thu: SUM(TongTien) của HoaDon TrangThai = N'DaThanhToan'
+ *  - Thu: SUM(SoTien) phiếu thu thủ công hoặc gắn hóa đơn còn hiệu lực
  *  - Chi: SUM(SoTien) của PhieuChi
  * @returns {Promise<{ tongThu: number, tongChi: number, soDu: number }>}
  */
 async function getSoDu() {
     const [thuR, chiR] = await Promise.all([
         db.query(`
-            SELECT ISNULL(SUM(TongTien), 0) AS tongThu
-            FROM HoaDon
-            WHERE TrangThai = N'DaThanhToan'
+            SELECT ISNULL(SUM(pt.SoTien), 0) AS tongThu
+            FROM PhieuThu pt
+            LEFT JOIN HoaDon hd ON hd.MaHD = pt.MaHD
+            WHERE pt.MaHD IS NULL OR hd.TrangThai = N'DaThanhToan'
         `),
         db.query(`SELECT ISNULL(SUM(SoTien), 0) AS tongChi FROM PhieuChi`),
     ]);
@@ -80,9 +81,10 @@ async function create(data) {
         // Tính số dư với HOLDLOCK để chống race condition
         const thuReq = new db.sql.Request(transaction);
         const thuR = await thuReq.query(`
-            SELECT ISNULL(SUM(TongTien), 0) AS tongThu
-            FROM HoaDon WITH (HOLDLOCK)
-            WHERE TrangThai = N'DaThanhToan'
+            SELECT ISNULL(SUM(pt.SoTien), 0) AS tongThu
+            FROM PhieuThu pt WITH (HOLDLOCK)
+            LEFT JOIN HoaDon hd WITH (HOLDLOCK) ON hd.MaHD = pt.MaHD
+            WHERE pt.MaHD IS NULL OR hd.TrangThai = N'DaThanhToan'
         `);
         const chiReq = new db.sql.Request(transaction);
         const chiR = await chiReq.query(`
@@ -213,7 +215,7 @@ async function getById(maPhieuChi) {
  *
  *  - tongThu / tongChi / soDu (realtime toàn thời gian)
  *  - soPhieuChi / tongPhieuChiThangNay / soPhieuChiThangNay
- *  - thuTrongKhoang: SUM(TongTien) của HoaDon DaThanhToan trong khoảng
+ *  - thuTrongKhoang: SUM(SoTien) của phiếu thu còn hiệu lực trong khoảng
  *  - chiTrongKhoang: SUM(SoTien) của PhieuChi trong khoảng
  *  - topNoiDung: top 5 nội dung chi phổ biến (group by normalized NoiDung)
  *  - recentPhieuChi: 5 phiếu chi gần nhất
@@ -227,7 +229,10 @@ async function getStats({ days = 30 } = {}) {
     const [tongR, phieuChiR, thangNayR] = await Promise.all([
         db.query(`
             SELECT
-                (SELECT ISNULL(SUM(TongTien), 0) FROM HoaDon WHERE TrangThai = N'DaThanhToan') AS tongThu,
+                (SELECT ISNULL(SUM(pt.SoTien), 0)
+                 FROM PhieuThu pt
+                 LEFT JOIN HoaDon hd ON hd.MaHD = pt.MaHD
+                 WHERE pt.MaHD IS NULL OR hd.TrangThai = N'DaThanhToan') AS tongThu,
                 (SELECT ISNULL(SUM(SoTien), 0) FROM PhieuChi) AS tongChi
         `),
         db.query(`SELECT COUNT(*) AS total FROM PhieuChi`),
@@ -250,12 +255,13 @@ async function getStats({ days = 30 } = {}) {
     // 2. Trong khoảng [from, to]: thu & chi theo ngày
     const fromDateSql = `DATEADD(DAY, -@days, CAST(GETDATE() AS DATE))`;
     const thuChartR = await db.query(`
-        SELECT CAST(NgayGioLap AS DATE) AS Ngay,
-               ISNULL(SUM(TongTien), 0) AS TongThu
-        FROM HoaDon
-        WHERE TrangThai = N'DaThanhToan'
-          AND NgayGioLap >= ${fromDateSql}
-        GROUP BY CAST(NgayGioLap AS DATE)
+        SELECT CAST(pt.NgayLap AS DATE) AS Ngay,
+               ISNULL(SUM(pt.SoTien), 0) AS TongThu
+        FROM PhieuThu pt
+        LEFT JOIN HoaDon hd ON hd.MaHD = pt.MaHD
+        WHERE (pt.MaHD IS NULL OR hd.TrangThai = N'DaThanhToan')
+          AND pt.NgayLap >= ${fromDateSql}
+        GROUP BY CAST(pt.NgayLap AS DATE)
     `, { days: safeDays - 1 });
 
     const chiChartR = await db.query(`

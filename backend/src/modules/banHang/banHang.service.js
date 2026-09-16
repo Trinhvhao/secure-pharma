@@ -142,6 +142,18 @@ async function banHang(data) {
         `);
         const hoaDon = hdResult.recordset[0];
 
+        // Ghi nhận tiền thực thu (doanh thu sau giảm giá), cùng transaction để
+        // hóa đơn và dòng tiền không bao giờ lệch nhau.
+        await new db.sql.Request(transaction)
+            .input('soTien', db.sql.Decimal(18, 2), totals.tongTien)
+            .input('maNV', db.sql.Int, maNV)
+            .input('maHD', db.sql.Int, hoaDon.MaHD)
+            .query(`
+                INSERT INTO PhieuThu (NgayLap, SoTien, LoaiPhieu, NoiDung, MaNV, MaHD)
+                VALUES (GETDATE(), @soTien, N'BanHang',
+                        CONCAT(N'Thu bán hàng - Hóa đơn #', @maHD), @maNV, @maHD)
+            `);
+
         for (const item of cartDetail) {
             for (const lo of item.chiTietLo) {
                 await new db.sql.Request(transaction)

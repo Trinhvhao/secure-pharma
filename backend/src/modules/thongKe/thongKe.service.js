@@ -358,6 +358,25 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
     `, thuParams);
     const thu = thuR.recordset[0];
 
+    // ===== Dòng tiền vào (PhieuThu còn hiệu lực) =====
+    const phieuThuParams = {};
+    let phieuThuWhere = `WHERE (pt.MaHD IS NULL OR hd.TrangThai = N'DaThanhToan')`;
+    if (fromDate) {
+        phieuThuWhere += ` AND CAST(pt.NgayLap AS DATE) >= @fromDate`;
+        phieuThuParams.fromDate = fromDate;
+    }
+    if (toDate) {
+        phieuThuWhere += ` AND CAST(pt.NgayLap AS DATE) <= @toDate`;
+        phieuThuParams.toDate = toDate;
+    }
+    const phieuThuR = await db.query(`
+        SELECT ISNULL(SUM(pt.SoTien), 0) AS TongThu,
+               COUNT(*) AS SoPhieuThu
+        FROM PhieuThu pt
+        LEFT JOIN HoaDon hd ON hd.MaHD = pt.MaHD
+        ${phieuThuWhere}
+    `, phieuThuParams);
+
     // ===== Phần chi (PhieuChi) =====
     const chiParams = {};
     let chiWhere = `WHERE 1=1`;
@@ -424,12 +443,13 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
     let dailyChart = [];
     if (fromDate && toDate) {
         const thuDailyR = await db.query(`
-            SELECT CAST(hd.NgayGioLap AS DATE) AS Ngay,
-                   ISNULL(SUM(hd.TongTien), 0) AS TongThu
-            FROM HoaDon hd
-            ${thuWhere}
-            GROUP BY CAST(hd.NgayGioLap AS DATE)
-        `, thuParams);
+            SELECT CAST(pt.NgayLap AS DATE) AS Ngay,
+                   ISNULL(SUM(pt.SoTien), 0) AS TongThu
+            FROM PhieuThu pt
+            LEFT JOIN HoaDon hd ON hd.MaHD = pt.MaHD
+            ${phieuThuWhere}
+            GROUP BY CAST(pt.NgayLap AS DATE)
+        `, phieuThuParams);
 
         const chiDailyR = await db.query(`
             SELECT CAST(pc.NgayLap AS DATE) AS Ngay,
@@ -458,9 +478,11 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
     const tongChiPC = Number(chi.TongChi) || 0;
     const tongTienNhap = Number(nhapR.recordset[0]?.TongTienNhap) || 0;
     const doanhThu = Number(thu.TongDoanhThu) || 0;
+    const tongThuPhieu = Number(phieuThuR.recordset[0]?.TongThu) || 0;
     const giaVonDaBan = Number(giaVonR.recordset[0]?.GiaVonDaBan) || 0;
     const summary = calculateFinanceSummary({
         doanhThu,
+        tongThu: tongThuPhieu,
         tongChiPhieuChi: tongChiPC,
         giaVonDaBan,
         giaTriNhapHang: tongTienNhap,
@@ -475,7 +497,7 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
         const prevToStr = previous.toDate;
         const prevParams = { prevFrom: prevFromStr, prevTo: prevToStr };
 
-        const [prevThuR, prevChiR, prevNhapR, prevGiaVonR] = await Promise.all([
+        const [prevThuR, prevChiR, prevNhapR, prevPhieuThuR, prevGiaVonR] = await Promise.all([
             db.query(`
                 SELECT
                     ISNULL(SUM(hd.TongTien), 0) AS DoanhThu
@@ -499,6 +521,14 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
                   AND CAST(pn.NgayNhap AS DATE) <= @prevTo
             `, prevParams),
             db.query(`
+                SELECT ISNULL(SUM(pt.SoTien), 0) AS TongThu
+                FROM PhieuThu pt
+                LEFT JOIN HoaDon hd ON hd.MaHD = pt.MaHD
+                WHERE (pt.MaHD IS NULL OR hd.TrangThai = N'DaThanhToan')
+                  AND CAST(pt.NgayLap AS DATE) >= @prevFrom
+                  AND CAST(pt.NgayLap AS DATE) <= @prevTo
+            `, prevParams),
+            db.query(`
                 SELECT ISNULL(SUM(ct.SoLuongBan * l.GiaNhap), 0) AS GiaVonDaBan
                 FROM ChiTietHoaDon ct
                 INNER JOIN HoaDon hd ON ct.MaHD = hd.MaHD
@@ -511,12 +541,14 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
 
         const prev = {
             doanhThu: Number(prevThuR.recordset[0]?.DoanhThu) || 0,
+            tongThu: Number(prevPhieuThuR.recordset[0]?.TongThu) || 0,
             tongChiPC: Number(prevChiR.recordset[0]?.TongChiPC) || 0,
             tongTienNhap: Number(prevNhapR.recordset[0]?.TongTienNhap) || 0,
             giaVonDaBan: Number(prevGiaVonR.recordset[0]?.GiaVonDaBan) || 0,
         };
         const prevSummary = calculateFinanceSummary({
             doanhThu: prev.doanhThu,
+            tongThu: prev.tongThu,
             tongChiPhieuChi: prev.tongChiPC,
             giaVonDaBan: prev.giaVonDaBan,
             giaTriNhapHang: prev.tongTienNhap,
@@ -548,6 +580,7 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
             loiNhuanBanHang,
             soDuTienMat,
             soHoaDon: Number(thu.SoHoaDon) || 0,
+            soPhieuThu: Number(phieuThuR.recordset[0]?.SoPhieuThu) || 0,
             soPhieuChi: Number(chi.SoPhieuChi) || 0,
             soPhieuNhap: Number(nhapR.recordset[0]?.SoPhieuNhap) || 0,
         },

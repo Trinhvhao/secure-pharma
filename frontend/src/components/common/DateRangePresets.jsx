@@ -14,10 +14,11 @@
  *  - onChange({ fromDate, toDate }) - được gọi khi user chọn preset hoặc đổi ngày custom
  *  - onApply() - bắt buộc click nút "Thống kê" mới fetch (tránh gọi API liên tục khi đổi ngày custom)
  *  - loading
+ *  - actions: nhóm hành động phụ (ví dụ xuất Excel/PDF)
  */
-import { useMemo, useState, useEffect } from 'react';
+import { useId, useMemo, useState, useEffect } from 'react';
 import dayjs from 'dayjs';
-import { Calendar, Search } from 'lucide-react';
+import { ArrowRight, Calendar, Search } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import Button from '../ui/Button';
 
@@ -55,9 +56,14 @@ export default function DateRangePresets({
     toDate,
     onApply,
     loading = false,
+    actions,
     className,
 }) {
     const todayStr = useMemo(() => dayjs().format('YYYY-MM-DD'), []);
+    const fieldId = useId();
+    const fromId = `${fieldId}-from`;
+    const toId = `${fieldId}-to`;
+    const errorId = `${fieldId}-error`;
 
     // State cục bộ cho input (chỉ apply khi bấm nút)
     const [localFrom, setLocalFrom] = useState(fromDate);
@@ -83,7 +89,8 @@ export default function DateRangePresets({
         onApply(r.fromDate, r.toDate);
     };
 
-    const handleApplyCustom = () => {
+    const handleApplyCustom = (event) => {
+        event?.preventDefault();
         // Validate: from <= to
         if (localFrom && localTo && localFrom > localTo) {
             return; // không apply nếu sai thứ tự
@@ -93,89 +100,127 @@ export default function DateRangePresets({
 
     const hasCustomRange = activePreset === null;
     const canApply = localFrom && localTo && localFrom <= localTo;
+    const invalidRange = localFrom && localTo && localFrom > localTo;
 
     return (
-        <div className={cn('space-y-3', className)}>
-            <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 text-caption font-medium text-neutral-700">
-                    <Calendar className="w-4 h-4 text-neutral-400" aria-hidden="true" />
-                    <span>Khoảng thời gian:</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                    {PRESETS.map((p) => (
-                        <button
-                            key={p.key}
-                            type="button"
-                            onClick={() => handlePresetClick(p.key)}
-                            className={cn(
-                                'px-3 py-1.5 text-caption rounded-btn border transition-colors',
-                                activePreset === p.key
-                                    ? 'bg-primary-600 text-white border-primary-600'
-                                    : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50'
-                            )}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
-                    {hasCustomRange && (
-                        <span className="px-3 py-1.5 text-caption rounded-btn border bg-info-50 text-info-700 border-info-200">
-                            Tùy chỉnh
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex flex-wrap items-end gap-3">
-                <div className="flex flex-col">
-                    <label htmlFor="tk-from" className="text-caption font-semibold text-neutral-700 mb-1.5">
-                        Từ ngày
-                    </label>
-                    <input
-                        id="tk-from"
-                        type="date"
-                        value={localFrom || ''}
-                        max={localTo || todayStr}
-                        onChange={(e) => setLocalFrom(e.target.value)}
-                        className="h-10 px-3 text-body border border-neutral-300 rounded-btn focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                    />
-                </div>
-                <span className="text-neutral-400 pb-2.5">—</span>
-                <div className="flex flex-col">
-                    <label htmlFor="tk-to" className="text-caption font-semibold text-neutral-700 mb-1.5">
-                        Đến ngày
-                    </label>
-                    <input
-                        id="tk-to"
-                        type="date"
-                        value={localTo || ''}
-                        min={localFrom || undefined}
-                        max={todayStr}
-                        onChange={(e) => setLocalTo(e.target.value)}
-                        className="h-10 px-3 text-body border border-neutral-300 rounded-btn focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-                    />
-                </div>
-                <Button
-                    variant="primary"
-                    icon={<Search className="h-4 w-4" />}
-                    onClick={handleApplyCustom}
-                    disabled={!canApply}
-                    loading={loading}
-                >
-                    Thống kê
-                </Button>
-                {hasCustomRange && (localFrom || localTo) && (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const r = resolvePreset('30');
-                            onApply(r.fromDate, r.toDate);
-                        }}
-                        className="text-caption text-neutral-500 hover:text-neutral-700 pb-2.5 underline"
+        <div className={cn('space-y-4', className)}>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center">
+                    <div className="flex flex-shrink-0 items-center gap-2 text-body font-semibold text-neutral-800">
+                        <Calendar className="h-4 w-4 text-neutral-400" aria-hidden="true" />
+                        <span>Khoảng thời gian</span>
+                    </div>
+                    <div
+                        className="flex flex-wrap gap-2"
+                        role="group"
+                        aria-label="Chọn nhanh khoảng thời gian"
                     >
-                        Reset về 30 ngày qua
-                    </button>
+                        {PRESETS.map((preset) => (
+                            <button
+                                key={preset.key}
+                                type="button"
+                                onClick={() => handlePresetClick(preset.key)}
+                                disabled={loading}
+                                aria-pressed={activePreset === preset.key}
+                                className={cn(
+                                    'h-9 rounded-btn border px-3 text-caption font-medium transition-colors',
+                                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
+                                    'disabled:cursor-not-allowed disabled:opacity-50',
+                                    activePreset === preset.key
+                                        ? 'border-primary-600 bg-primary-600 text-white shadow-sm'
+                                        : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+                                )}
+                            >
+                                {preset.label}
+                            </button>
+                        ))}
+                        {hasCustomRange && (
+                            <span className="inline-flex h-9 items-center rounded-btn border border-info-200 bg-info-50 px-3 text-caption font-medium text-info-700">
+                                Tùy chỉnh
+                            </span>
+                        )}
+                    </div>
+                </div>
+                {actions && (
+                    <div className="flex-shrink-0 border-t border-neutral-100 pt-3 lg:border-0 lg:pt-0">
+                        {actions}
+                    </div>
                 )}
             </div>
+
+            <form
+                className="border-t border-neutral-200 pt-4"
+                onSubmit={handleApplyCustom}
+            >
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                    <div className="flex w-full flex-col sm:w-[180px]">
+                        <label htmlFor={fromId} className="mb-1.5 text-caption font-semibold text-neutral-700">
+                            Từ ngày
+                        </label>
+                        <input
+                            id={fromId}
+                            type="date"
+                            value={localFrom || ''}
+                            max={localTo || todayStr}
+                            aria-invalid={invalidRange || undefined}
+                            aria-describedby={invalidRange ? errorId : undefined}
+                            onChange={(event) => setLocalFrom(event.target.value)}
+                            className="h-10 w-full rounded-btn border border-neutral-300 px-3 text-body focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                    </div>
+
+                    <div className="hidden h-10 items-center text-neutral-400 sm:flex" aria-hidden="true">
+                        <ArrowRight className="h-4 w-4" />
+                    </div>
+
+                    <div className="flex w-full flex-col sm:w-[180px]">
+                        <label htmlFor={toId} className="mb-1.5 text-caption font-semibold text-neutral-700">
+                            Đến ngày
+                        </label>
+                        <input
+                            id={toId}
+                            type="date"
+                            value={localTo || ''}
+                            min={localFrom || undefined}
+                            max={todayStr}
+                            aria-invalid={invalidRange || undefined}
+                            aria-describedby={invalidRange ? errorId : undefined}
+                            onChange={(event) => setLocalTo(event.target.value)}
+                            className="h-10 w-full rounded-btn border border-neutral-300 px-3 text-body focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                    </div>
+
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        icon={<Search className="h-4 w-4" />}
+                        disabled={!canApply}
+                        loading={loading}
+                        className="w-full sm:w-auto"
+                    >
+                        Thống kê
+                    </Button>
+
+                    {hasCustomRange && (localFrom || localTo) && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const range = resolvePreset('30');
+                                onApply(range.fromDate, range.toDate);
+                            }}
+                            disabled={loading}
+                            className="h-10 self-start px-1 text-caption font-medium text-neutral-500 underline-offset-4 hover:text-primary-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
+                        >
+                            Về 30 ngày qua
+                        </button>
+                    )}
+                </div>
+                {invalidRange && (
+                    <p id={errorId} role="alert" className="mt-2 text-caption text-danger-600">
+                        Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.
+                    </p>
+                )}
+            </form>
         </div>
     );
 }

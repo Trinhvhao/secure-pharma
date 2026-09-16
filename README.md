@@ -121,6 +121,7 @@ Mở `http://localhost:5173` → Click "Test API Connection" để verify.
 
 | File | Mô tả |
 |---|---|
+| [`LEARNING_GUIDE.md`](./docs/LEARNING_GUIDE.md) | 📚 Hướng dẫn học & phân tích dự án — kiến trúc, bảo mật, cách đọc code |
 | [`FEATURES.md`](./docs/FEATURES.md) | Phân tích chức năng từ đề bài |
 | [`IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) | Kế hoạch triển khai 6 Phase |
 | [`INSTALL.md`](./docs/INSTALL.md) | Hướng dẫn cài đặt chi tiết |
@@ -130,6 +131,7 @@ Mở `http://localhost:5173` → Click "Test API Connection" để verify.
 | [`UI_REDESIGN_PLAN.md`](./docs/UI_REDESIGN_PLAN.md) | Kế hoạch cải thiện FE 6 phase (ưu tiên → polish) |
 | [`CRUD_MODAL_AUDIT.md`](./docs/CRUD_MODAL_AUDIT.md) | 🔍 Audit + test plan + đề xuất cải thiện modal CRUD (16/09/2026) |
 | [`UI_NOTIFICATIONS.md`](./docs/UI_NOTIFICATIONS.md) | 🔔 Hệ thống toast + ConfirmDialog — quy tắc & pattern dùng cho toàn FE |
+| [`API.md`](./docs/API.md) | 🔌 Tham chiếu Backend API đầy đủ (~70 endpoints, 13 module) |
 
 ---
 

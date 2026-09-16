@@ -13,7 +13,7 @@ const db = require('../../config/db');
 const SALT_ROUNDS = 10;
 
 /**
- * Generate access token (8h, dùng cho authenticate)
+ * Generate access token ngắn hạn (15 phút mặc định, dùng cho authenticate)
  */
 function generateAccessToken(user) {
     return jwt.sign(
@@ -24,7 +24,7 @@ function generateAccessToken(user) {
             type: 'access',
         },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+        { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
     );
 }
 
@@ -253,6 +253,8 @@ async function changePassword(username, currentPassword, newPassword) {
  * Trả về accessToken mới + refreshToken mới (rotation).
  */
 async function refreshToken(refreshToken) {
+    let transaction;
+    let transactionStarted = false;
     try {
         // Verify với refresh secret RIÊNG + check type='refresh'
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
@@ -260,24 +262,42 @@ async function refreshToken(refreshToken) {
             return { success: false, message: 'Invalid token type' };
         }
 
-        // Get user from DB để validate TokenVersion
-        const result = await db.query(
-            'SELECT * FROM TaiKhoan WHERE TenDangNhap = @username AND TrangThai = @status',
-            { username: decoded.sub, status: 'HoatDong' }
-        );
-
+        // Khóa row trong transaction: chỉ một request được dùng mỗi refresh token.
+        transaction = new db.sql.Transaction(db.getPool());
+        await transaction.begin(db.sql.ISOLATION_LEVEL.SERIALIZABLE);
+        transactionStarted = true;
+        const request = new db.sql.Request(transaction);
+        request.input('username', db.sql.VarChar, decoded.sub);
+        const result = await request.query(`
+            SELECT * FROM TaiKhoan WITH (UPDLOCK, HOLDLOCK)
+            WHERE TenDangNhap = @username AND TrangThai = N'HoatDong'
+        `);
         const user = result.recordset[0];
         if (!user) {
-            return { success: false, message: 'Invalid refresh token' };
+            throw Object.assign(new Error('Invalid refresh token'), { isAuthError: true });
         }
 
         // Validate TokenVersion để revoke token cũ khi đổi password
         const tokenVersion = decoded.version || 1;
-        if (user.TokenVersion && tokenVersion !== user.TokenVersion) {
-            return { success: false, message: 'Token đã bị revoke' };
+        const currentVersion = user.TokenVersion || 1;
+        if (tokenVersion !== currentVersion) {
+            throw Object.assign(new Error('Token đã bị revoke hoặc đã được sử dụng'), { isAuthError: true });
         }
 
-        // Rotation: cấp access + refresh MỚI
+        // Rotation thật: tăng version trước khi cấp token mới, token cũ hết hiệu lực ngay.
+        const nextVersion = currentVersion + 1;
+        await new db.sql.Request(transaction)
+            .input('username', db.sql.VarChar, decoded.sub)
+            .input('nextVersion', db.sql.Int, nextVersion)
+            .query(`
+                UPDATE TaiKhoan
+                SET TokenVersion = @nextVersion, UpdatedAt = GETDATE()
+                WHERE TenDangNhap = @username
+            `);
+        await transaction.commit();
+        transactionStarted = false;
+        user.TokenVersion = nextVersion;
+
         return {
             success: true,
             data: {
@@ -286,8 +306,25 @@ async function refreshToken(refreshToken) {
             },
         };
     } catch (err) {
-        return { success: false, message: 'Invalid or expired refresh token' };
+        if (transactionStarted) {
+            try { await transaction.rollback(); } catch (rollbackError) {
+                console.error('Refresh token rollback failed:', rollbackError.message);
+            }
+        }
+        return {
+            success: false,
+            message: err.isAuthError ? err.message : 'Invalid or expired refresh token',
+        };
     }
+}
+
+/** Thu hồi mọi refresh token hiện tại của tài khoản. */
+async function revokeRefreshTokens(username) {
+    await db.query(`
+        UPDATE TaiKhoan
+        SET TokenVersion = ISNULL(TokenVersion, 1) + 1, UpdatedAt = GETDATE()
+        WHERE TenDangNhap = @username
+    `, { username });
 }
 
 module.exports = {
@@ -297,4 +334,5 @@ module.exports = {
     refreshToken,
     generateAccessToken,
     generateRefreshToken,
+    revokeRefreshTokens,
 };

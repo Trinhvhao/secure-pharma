@@ -219,7 +219,32 @@ END
 GO
 
 -- ============================================================
--- 11. BẢNG PHIẾU CHI
+-- 11. BẢNG PHIẾU THU
+-- ============================================================
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PhieuThu')
+BEGIN
+    CREATE TABLE PhieuThu (
+        MaPhieuThu INT IDENTITY(1,1) PRIMARY KEY,
+        NgayLap DATETIME2 DEFAULT GETDATE(),
+        SoTien DECIMAL(18,2) NOT NULL,
+        LoaiPhieu NVARCHAR(50) NOT NULL DEFAULT N'Khac',
+        NoiDung NVARCHAR(500) NOT NULL,
+        MaNV INT NOT NULL,
+        MaHD INT,
+        CreatedAt DATETIME2 DEFAULT GETDATE(),
+        CONSTRAINT FK_PhieuThu_NV FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV),
+        CONSTRAINT FK_PhieuThu_HD FOREIGN KEY (MaHD) REFERENCES HoaDon(MaHD),
+        CONSTRAINT CK_PhieuThu_SoTien CHECK (SoTien > 0),
+        CONSTRAINT CK_PhieuThu_LoaiPhieu CHECK (LoaiPhieu IN (N'BanHang', N'Khac'))
+    );
+    CREATE UNIQUE INDEX UX_PhieuThu_MaHD ON PhieuThu(MaHD) WHERE MaHD IS NOT NULL;
+    CREATE INDEX IX_PhieuThu_NgayLap ON PhieuThu(NgayLap);
+    PRINT 'Table PhieuThu created';
+END
+GO
+
+-- ============================================================
+-- 12. BẢNG PHIẾU CHI
 -- ============================================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PhieuChi')
 BEGIN
@@ -238,7 +263,7 @@ END
 GO
 
 -- ============================================================
--- 12. BẢNG AUDIT LOG
+-- 13. BẢNG AUDIT LOG
 -- ============================================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuditLog')
 BEGIN

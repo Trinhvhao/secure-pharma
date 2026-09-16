@@ -24,7 +24,7 @@ const MENU_GROUPS = [
   {
     key: 'operations',
     label: 'Nghiệp vụ',
-    items: ['dashboard', 'banhang', 'thuoc', 'danh-muc', 'kho'],
+    items: ['dashboard', 'banhang', 'phieuthu', 'thuoc', 'danh-muc', 'kho'],
   },
   {
     key: 'partners',
@@ -52,9 +52,9 @@ function NavItem({ item, isActive, onNavigate, isCollapsed, collapsedHover }) {
         'transition-colors duration-150',
         isCollapsed && 'justify-center px-0',
         isActive
-          ? 'bg-primary-50 text-primary-700 font-semibold'
-          : 'text-neutral-700 hover:bg-neutral-100',
-        collapsedHover && isCollapsed && 'bg-primary-50 text-primary-700'
+          ? 'bg-primary-50 text-neutral-900 font-semibold'
+          : 'text-neutral-900 hover:bg-neutral-100',
+        collapsedHover && isCollapsed && 'bg-primary-50 text-neutral-900'
       )}
       aria-current={isActive ? 'page' : undefined}
     >
@@ -115,8 +115,8 @@ function MenuGroup({ group, items, currentPath, onNavigate, isCollapsed, collaps
           <Disclosure.Button
             className={cn(
               'w-full flex items-center justify-between px-2 py-1.5',
-              'text-caption font-semibold text-neutral-500 uppercase tracking-wide',
-              'hover:text-neutral-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded'
+              'text-caption font-semibold text-neutral-900 uppercase tracking-wide',
+              'hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded'
             )}
           >
             <span>{group.label}</span>

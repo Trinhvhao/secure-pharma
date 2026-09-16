@@ -65,10 +65,10 @@ export default function Button({
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
       ) : icon ? (
-        <span className="inline-flex">{icon}</span>
+        <span className="inline-flex" aria-hidden="true">{icon}</span>
       ) : null}
       {children && <span>{children}</span>}
-      {!loading && iconRight && <span className="inline-flex">{iconRight}</span>}
+      {!loading && iconRight && <span className="inline-flex" aria-hidden="true">{iconRight}</span>}
     </button>
   );
 }

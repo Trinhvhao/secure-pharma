@@ -41,6 +41,7 @@ import LoadingState from '../../components/ui/LoadingState';
 import DateRangePresets from '../../components/common/DateRangePresets';
 import DeltaIndicator from '../../components/common/DeltaIndicator';
 import { formatCurrency } from '../../utils/format';
+import ReportExportActions from '../../components/common/ReportExportActions';
 
 const todayStr = () => dayjs().format('YYYY-MM-DD');
 const monthAgoStr = () => dayjs().subtract(29, 'day').format('YYYY-MM-DD');
@@ -78,6 +79,35 @@ function ThongKeHoaDonTab() {
     };
 
     const ss = data?.soSanhKyTruoc;
+    const reportSections = data ? [
+        {
+            title: 'Tổng quan hóa đơn',
+            rows: [
+                { 'Chỉ số': 'Số hóa đơn', 'Giá trị': data.tongQuan.soHoaDon },
+                { 'Chỉ số': 'Tổng doanh thu', 'Giá trị': data.tongQuan.tongDoanhThu },
+                { 'Chỉ số': 'Doanh thu trung bình', 'Giá trị': data.tongQuan.doanhThuTrungBinh },
+                { 'Chỉ số': 'Hóa đơn cao nhất', 'Giá trị': data.tongQuan.doanhThuCaoNhat },
+            ],
+        },
+        {
+            title: 'Doanh thu theo ngày',
+            rows: data.doanhThuTheoNgay.map((item) => ({
+                'Ngày': dayjs(item.ngay).format('DD/MM/YYYY'),
+                'Số hóa đơn': item.soHoaDon,
+                'Doanh thu': item.doanhThu,
+            })),
+        },
+        {
+            title: 'Thuốc bán chạy',
+            rows: data.topThuocBanChay.map((item) => ({
+                'Mã thuốc': item.maThuoc,
+                'Tên thuốc': item.tenThuoc,
+                'Danh mục': item.tenDM,
+                'Số lượng bán': item.tongSoLuongBan,
+                'Doanh thu': item.tongDoanhThu,
+            })),
+        },
+    ] : [];
 
     const stats = data
         ? [
@@ -213,6 +243,16 @@ function ThongKeHoaDonTab() {
                     toDate={toDate}
                     onApply={handleApply}
                     loading={loading}
+                    actions={(
+                      <ReportExportActions
+                        filename={`bao-cao-hoa-don-${fromDate}-${toDate}`}
+                        title="Báo cáo hóa đơn"
+                        subtitle={`Từ ${dayjs(fromDate).format('DD/MM/YYYY')} đến ${dayjs(toDate).format('DD/MM/YYYY')}`}
+                        sections={reportSections}
+                        disabled={!data || loading}
+                        className="justify-start lg:justify-end"
+                      />
+                    )}
                 />
             </Card>
 
