@@ -20,11 +20,13 @@ import { ICON_MAP } from './icons';
 import { cn } from '../../utils/cn';
 
 // === Gom menu thành 3 nhóm theo nghiệp vụ ===
+    // MENU_GROUPS — gộp items theo nhóm nghiệp vụ
+// NOTE: Phiếu thu không còn mục sidebar riêng, đã gộp vào Tài chính
 const MENU_GROUPS = [
   {
     key: 'operations',
     label: 'Nghiệp vụ',
-    items: ['dashboard', 'banhang', 'phieuthu', 'thuoc', 'danh-muc', 'kho'],
+    items: ['dashboard', 'banhang', 'thuoc', 'danh-muc', 'kho'],
   },
   {
     key: 'partners',
@@ -34,7 +36,7 @@ const MENU_GROUPS = [
   {
     key: 'admin',
     label: 'Quản trị',
-    items: ['taichinh', 'thongke', 'change-password'],
+    items: ['taichinh', 'thongke', 'change-password', 'api-docs'],
   },
 ];
 

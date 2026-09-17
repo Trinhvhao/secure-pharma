@@ -46,6 +46,9 @@ import PhieuThuListPage from './pages/taichinh/PhieuThuListPage';
 // Phase 3H - Thống kê
 import ThongKePage from './pages/thongke/ThongKePage';
 
+// Admin - Tài liệu API (Swagger UI)
+import ApiDocsPage from './pages/admin/ApiDocsPage';
+
 function App() {
     return (
         <AuthProvider>
@@ -91,13 +94,24 @@ function App() {
                         <Route path="/ban-hang" element={<BanHangPage />} />
                         <Route path="/hoa-don" element={<HoaDonListPage />} />
 
-                        {/* Phase 3G - Tài chính */}
-                        <Route path="/tai-chinh" element={<TaiChinhPage />} />
-                        <Route path="/phieu-chi" element={<PhieuChiListPage />} />
-                        <Route path="/phieu-thu" element={<PhieuThuListPage />} />
+                        {/* Phase 3G - Tài chính (Admin only) */}
+                        <Route path="/tai-chinh" element={
+                            <ProtectedRoute roles={['Admin']}>
+                                <TaiChinhPage />
+                            </ProtectedRoute>
+                        } />
+                        {/* Redirect route cũ → trang Tài chính */}
+                        <Route path="/phieu-thu" element={<Navigate to="/tai-chinh" replace />} />
+                        <Route path="/phieu-chi" element={<Navigate to="/tai-chinh" replace />} />
+                        <Route path="/phieu-chi/:id" element={<Navigate to="/tai-chinh" replace />} />
+                        <Route path="/tai-chinh/phieu-thu" element={<Navigate to="/tai-chinh" replace />} />
+                        <Route path="/tai-chinh/phieu-chi" element={<Navigate to="/tai-chinh" replace />} />
 
                         {/* Phase 3H - Thống kê (All roles - Admin-only tabs sẽ tự ẩn) */}
                         <Route path="/thong-ke" element={<ThongKePage />} />
+
+                        {/* Admin - Tài liệu API (Swagger UI nhúng iframe trỏ về BE) */}
+                        <Route path="/api-docs" element={<ApiDocsPage />} />
                     </Route>
 
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

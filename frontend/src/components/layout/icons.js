@@ -15,6 +15,7 @@ import {
   KeyRound,
   FolderTree,
   ReceiptText,
+  BookOpen,
 } from 'lucide-react';
 
 export const ICON_MAP = {
@@ -30,4 +31,5 @@ export const ICON_MAP = {
   KeyRound,
   FolderTree,
   ReceiptText,
+  BookOpen,
 };

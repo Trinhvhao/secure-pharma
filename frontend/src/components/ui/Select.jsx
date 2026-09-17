@@ -18,12 +18,19 @@ const Select = forwardRef(function Select(
     className,
     selectClassName,
     id,
+    onChange,
     ...rest
   },
   ref
 ) {
   const generatedId = useId();
   const selectId = id || generatedId;
+
+  // Native <select> onChange truyền event; ta unwrap thành raw value để các
+  // caller dùng được `onChange={(v) => setX(v)}` thay vì phải tự .target.value.
+  const handleChange = (e) => {
+    if (onChange) onChange(e.target.value);
+  };
 
   return (
     <div className={cn('w-full', className)}>
@@ -43,6 +50,7 @@ const Select = forwardRef(function Select(
           id={selectId}
           disabled={disabled}
           aria-invalid={!!error || undefined}
+          onChange={handleChange}
           className={cn(
             'w-full h-10 pl-3 pr-10 text-body text-neutral-900 bg-white',
             'border rounded-btn appearance-none cursor-pointer',

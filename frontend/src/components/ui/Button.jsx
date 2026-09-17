@@ -1,7 +1,7 @@
 /**
  * Button — Nút bấm dùng chung toàn app
  *
- * Variants: primary | secondary | danger | ghost | outline
+ * Variants: primary | success | secondary | danger | ghost | outline
  * Sizes:    sm | md | lg
  *
  * @example
@@ -14,6 +14,8 @@ import { cn } from '../../utils/cn';
 const VARIANT_CLASSES = {
   primary:
     'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-700 shadow-sm disabled:bg-primary-300',
+  success:
+    'bg-success-600 text-white hover:bg-success-700 active:bg-success-700 shadow-sm disabled:bg-success-300',
   secondary:
     'bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100 disabled:bg-neutral-100 disabled:text-neutral-400',
   danger:

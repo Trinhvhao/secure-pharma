@@ -34,13 +34,6 @@ export const MENU_ITEMS = [
         roles: ['Admin', 'NV_BanHang']          // NV_Kho không được bán
     },
     {
-        key: 'phieuthu',
-        label: 'Phiếu thu',
-        icon: 'ReceiptText',
-        path: '/phieu-thu',
-        roles: ['Admin', 'NV_BanHang']
-    },
-    {
         key: 'thuoc',
         label: 'Quản lý thuốc',
         icon: 'Pill',
@@ -80,9 +73,9 @@ export const MENU_ITEMS = [
         label: 'Tài chính',
         icon: 'Wallet',
         path: '/tai-chinh',
-        roles: ['Admin'],                         // Chỉ Admin
-        // Highlight sidebar khi vào sub-page (vd /phieu-chi vẫn highlight "Tài chính")
-        activeMatch: ['/tai-chinh', '/phieu-chi'],
+        roles: ['Admin'],                        // Chỉ Admin — phân tách trách nhiệm kế toán
+        // Highlight sidebar khi vào sub-page
+        activeMatch: ['/tai-chinh', '/phieu-chi', '/phieu-thu'],
     },
     {
         key: 'thongke',
@@ -97,6 +90,13 @@ export const MENU_ITEMS = [
         icon: 'KeyRound',
         path: '/change-password',
         roles: ['Admin', 'NV_BanHang', 'NV_Kho'] // Tất cả user đều đổi được MK
+    },
+    {
+        key: 'api-docs',
+        label: 'Tài liệu API',
+        icon: 'BookOpen',
+        path: '/api-docs',
+        roles: ['Admin']                         // Chỉ Admin — Swagger nội bộ
     }
 ];
 
