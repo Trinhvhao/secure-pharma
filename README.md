@@ -132,6 +132,7 @@ Mở `http://localhost:5173` → Click "Test API Connection" để verify.
 | [`CRUD_MODAL_AUDIT.md`](./docs/CRUD_MODAL_AUDIT.md) | 🔍 Audit + test plan + đề xuất cải thiện modal CRUD (16/09/2026) |
 | [`UI_NOTIFICATIONS.md`](./docs/UI_NOTIFICATIONS.md) | 🔔 Hệ thống toast + ConfirmDialog — quy tắc & pattern dùng cho toàn FE |
 | [`API.md`](./docs/API.md) | 🔌 Tham chiếu Backend API đầy đủ (~70 endpoints, 13 module) |
+| [`SECURITY.md`](./docs/SECURITY.md) | 🔒 Giải thích các cơ chế bảo mật (RBAC, JWT, bcrypt, AES, XSS, rate-limit, audit) |
 
 ---
 

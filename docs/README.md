@@ -15,6 +15,7 @@ Mọi tài liệu của dự án SecurePharma được lưu trữ tại folder n
 | [`UI_REDESIGN_PLAN.md`](./UI_REDESIGN_PLAN.md) | Kế hoạch cải thiện FE 6 phase (15/09/2026) |
 | [`CRUD_MODAL_AUDIT.md`](./CRUD_MODAL_AUDIT.md) | 🔍 Audit + test plan + đề xuất cải thiện modal CRUD (16/09/2026) |
 | [`API.md`](./API.md) | 🔌 Tài liệu tham chiếu Backend API (~70 endpoints, 13 module) |
+| [`SECURITY.md`](./SECURITY.md) | 🔒 Giải thích các cơ chế bảo mật (RBAC, JWT, bcrypt, AES, XSS, rate-limit, audit) — không code, chỉ giải thích |
 
 ## 🗄️ Archive (đã đóng băng)
 

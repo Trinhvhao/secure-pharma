@@ -192,7 +192,7 @@ CREATE TABLE VaiTro_Quyen (
 | STT | Chức năng | Mô tả chi tiết |
 |:-:|---|---|
 | 18 | CRUD Khách hàng | Lưu `TenKH`, `SDT`, `GioiTinh`. SDT **mã hóa AES-256** khi lưu, giải mã khi hiển thị (cần quyền). |
-| 19 | CRUD Nhà cung cấp | `MaNCC`, `TenNCC`, `DiaChi`, `SDT`. |
+| 19 | CRUD Nhà cung cấp | `MaNCC`, `TenNCC`, `DiaChi`, `SDT`, `Email`, `MaSoThue`, `NguoiLienHe`, `GhiChu`. |
 
 ### 5.6. **Module Quản lý Nhân viên**
 
