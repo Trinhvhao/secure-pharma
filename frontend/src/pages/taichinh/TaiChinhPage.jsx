@@ -8,17 +8,22 @@
  *  • Biểu đồ đường (LineChart): Số dư quỹ cuối ngày theo ngày
  *  • Bảng top 5 phiếu chi gần nhất + Top 5 nội dung chi phổ biến
  *  • Quick links giữ nguyên
+ *
+ * NOTE: Phiếu thu đã gộp vào đây (từ sidebar "Nghiệp vụ" chuyển về "Quản trị")
+ *  - Hiển thị phiếu thu gần nhất bên cạnh phiếu chi
+ *  - Quick link đến /phieu-thu (NV_BanHang có thể tạo "Thu khác")
  */
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-    Wallet, TrendingUp, TrendingDown, Scale, Wallet2, History,
-    Calendar, ArrowRight, Receipt, BarChart3, LineChart as LineChartIcon,
-    ChevronRight,
+    Wallet, TrendingUp, TrendingDown, Scale, History,
+    Calendar, Receipt, BarChart3, LineChart as LineChartIcon,
+    ChevronRight, ReceiptText,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import phieuChiService from '../../services/phieuChiService';
+import phieuThuService from '../../services/phieuThuService';
 import PageHeader from '../../components/ui/PageHeader';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -26,6 +31,8 @@ import StatCard from '../../components/ui/StatCard';
 import LoadingState from '../../components/ui/LoadingState';
 import { cn } from '../../utils/cn';
 import { formatCurrency, formatCurrencyCompact } from '../../utils/format';
+import PhieuThuSubPage from './PhieuThuSubPage';
+import PhieuChiSubPage from './PhieuChiSubPage';
 
 // ─── Range presets ─────────────────────────────────────────────────────────────
 
@@ -63,7 +70,10 @@ function BarChart({ data, width = 720, height = 260 }) {
     );
     const stepX = data.length > 0 ? innerW / data.length : 0;
     const barGroupW = stepX * 0.7;
-    const barW = barGroupW / 2 - 2;
+    // Đảm bảo width > 0 (tránh lỗi React: <rect> attribute width: A negative value is not valid)
+    // Khi data.length lớn (vd Năm nay = 260-365 ngày), stepX rất nhỏ → barW âm.
+    const barW = Math.max(0, barGroupW / 2 - 1);
+    const barGap = barW > 0 ? 1 : 0;
 
     // Y ticks (5 mức)
     const ticks = useMemo(() => {
@@ -122,7 +132,7 @@ function BarChart({ data, width = 720, height = 260 }) {
                         </rect>
                         {/* Chi (đỏ) */}
                         <rect
-                            x={groupX + barW + 4} y={padding.top + innerH - chiH}
+                            x={groupX + barW + barGap} y={padding.top + innerH - chiH}
                             width={barW} height={chiH}
                             fill="currentColor" className="text-danger-500"
                             rx="2"
@@ -278,15 +288,24 @@ function LineChart({ data, width = 720, height = 260 }) {
 
 function TaiChinhPage() {
     const navigate = useNavigate();
+    // Tab nội bộ: 'overview' | 'phieu-thu' | 'phieu-chi'
+    const [activeTab, setActiveTab] = useState('overview');
     const [stats, setStats] = useState(null);
+    const [recentThu, setRecentThu] = useState([]);
+    const [totalPhieuThu, setTotalPhieuThu] = useState(0);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState('30');
 
     const fetchStats = useCallback(async (days) => {
         setLoading(true);
         try {
-            const res = await phieuChiService.getStats({ days });
-            setStats(res.data);
+            const [statsRes, thuRes] = await Promise.all([
+                phieuChiService.getStats({ days }),
+                phieuThuService.getAll({ page: 1, limit: 5 }).catch(() => ({ data: { items: [], pagination: { total: 0 } } })),
+            ]);
+            setStats(statsRes.data);
+            setRecentThu(thuRes.data?.items || []);
+            setTotalPhieuThu(thuRes.data?.pagination?.total || 0);
         } catch (err) {
             toast.error('Không thể tải thông tin tài chính');
             console.error(err);
@@ -299,8 +318,7 @@ function TaiChinhPage() {
         fetchStats(resolveDays(range));
     }, [range, fetchStats]);
 
-    const goToCreate = () => navigate('/phieu-chi', { state: { openCreate: true } });
-    const goToList = () => navigate('/phieu-chi');
+    const goToChiList = () => setActiveTab('phieu-chi');
 
     if (loading && !stats) {
         return <LoadingState label="Đang tải thông tin tài chính..." />;
@@ -312,6 +330,8 @@ function TaiChinhPage() {
     const tongThuKhoang = stats?.tongThuTrongKhoang ?? 0;
     const tongChiKhoang = stats?.tongChiTrongKhoang ?? 0;
     const soDuCuoiKy = stats?.soDuCuoiKy ?? soDu;
+    const soPhieuChi = stats?.soPhieuChi ?? 0;
+    const soPhieuThu = totalPhieuThu;
 
     const chartData = stats?.chartData || [];
     const balanceChart = stats?.balanceChart || [];
@@ -327,45 +347,81 @@ function TaiChinhPage() {
                 icon={<Wallet />}
                 title="Tài chính"
                 subtitle="Theo dõi dòng tiền vào/ra và số dư quỹ hiện tại"
-                actions={
-                    <Button variant="primary" icon={<Wallet2 className="w-4 h-4" />} onClick={goToCreate}>
-                        Tạo phiếu chi
-                    </Button>
-                }
             />
 
-            {/* ── Stats row (4 cards) ──────────────────────────────────────── */}
+            {/* ── Stats row (5 cards, cùng 1 hàng) ───────────────────── */}
             <section
                 aria-label="Tổng quan tài chính"
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
             >
                 <StatCard
                     icon={<TrendingUp className="h-5 w-5" />}
-                    label="Tổng thu (tất cả)"
+                    label="Tổng thu"
                     value={formatCurrency(tongThu)}
                     color="success"
                 />
                 <StatCard
                     icon={<TrendingDown className="h-5 w-5" />}
-                    label="Tổng chi (tất cả)"
+                    label="Tổng chi"
                     value={formatCurrency(tongChi)}
                     color="danger"
                 />
                 <StatCard
                     icon={<Scale className="h-5 w-5" />}
-                    label="Số dư quỹ hiện tại"
+                    label="Số dư quỹ"
                     value={formatCurrency(soDu)}
                     color={soDu >= 0 ? 'primary' : 'danger'}
                 />
                 <StatCard
+                    icon={<ReceiptText className="h-5 w-5" />}
+                    label="Số phiếu thu"
+                    value={(soPhieuThu ?? 0).toLocaleString('vi-VN')}
+                    color="success"
+                />
+                <StatCard
                     icon={<Receipt className="h-5 w-5" />}
                     label="Số phiếu chi"
-                    value={(stats?.soPhieuChi ?? 0).toLocaleString('vi-VN')}
+                    value={(soPhieuChi ?? 0).toLocaleString('vi-VN')}
                     color="info"
                 />
             </section>
 
-            {/* ── Range filter + secondary KPIs (cùng 1 hàng) ──────────────────── */}
+            {/* ── Sub-nav (3 tab: Tổng quan / Phiếu thu / Phiếu chi) ────── */}
+            <nav aria-label="Mục tài chính" className="border-b border-neutral-200">
+                <div className="flex items-center gap-1 overflow-x-auto">
+                    {[
+                        { key: 'overview', label: 'Tổng quan', icon: Wallet },
+                        { key: 'phieu-thu', label: 'Phiếu thu', icon: ReceiptText },
+                        { key: 'phieu-chi', label: 'Phiếu chi', icon: Receipt },
+                    ].map(({ key, label, icon: Icon }) => (
+                        <button key={key} type="button"
+                            onClick={() => setActiveTab(key)}
+                            className={cn(
+                                'flex items-center gap-2 px-4 py-2.5 text-body font-medium border-b-2 transition-colors whitespace-nowrap',
+                                activeTab === key
+                                    ? 'border-primary-600 text-primary-700'
+                                    : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
+                            )}>
+                            <Icon className="w-4 h-4" />
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            </nav>
+
+            {/* ── Nội dung theo tab ───────────────────────────────────────── */}
+            {activeTab === 'overview' && (
+                <>
+                    {/* Range filter + biểu đồ + tables đã render bên dưới */}
+                </>
+            )}
+            {activeTab === 'phieu-thu' && <PhieuThuSubPage />}
+            {activeTab === 'phieu-chi' && <PhieuChiSubPage />}
+
+            {/* ── Range filter + Biểu đồ + Tables (chỉ hiện ở Tổng quan) ─── */}
+            {activeTab === 'overview' && (
+            <>
+            {/* Range filter + secondary KPIs */}
             <Card>
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-x-6 gap-y-3">
                     {/* Range buttons */}
@@ -484,7 +540,7 @@ function TaiChinhPage() {
                             </div>
                             <button
                                 type="button"
-                                onClick={goToList}
+                                onClick={goToChiList}
                                 className="text-caption text-primary-600 hover:text-primary-700 flex items-center gap-1"
                             >
                                 Xem tất cả
@@ -504,7 +560,7 @@ function TaiChinhPage() {
                                 <button
                                     key={pc.MaPhieuChi}
                                     type="button"
-                                    onClick={() => navigate('/phieu-chi', { state: { viewId: pc.MaPhieuChi } })}
+                                    onClick={() => navigate('/tai-chinh/phieu-chi', { state: { viewId: pc.MaPhieuChi } })}
                                     className="w-full px-4 py-3 hover:bg-neutral-50 transition-colors flex items-center gap-3 text-left focus:outline-none focus-visible:bg-primary-50"
                                 >
                                     <span className="w-10 h-10 rounded-card bg-danger-50 text-danger-700 flex items-center justify-center flex-shrink-0">
@@ -577,41 +633,8 @@ function TaiChinhPage() {
                     )}
                 </Card>
             </div>
-
-            {/* ── Quick links ─────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link to="/phieu-chi">
-                    <Card hoverable title="Lịch sử phiếu chi" subtitle="Xem các phiếu chi đã tạo">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-card bg-info-100 text-info-700 flex items-center justify-center">
-                                <History className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-h3 font-bold text-neutral-900">Phiếu chi</p>
-                                <p className="text-caption text-neutral-500">Quản lý & tra cứu</p>
-                            </div>
-                            <ArrowRight className="w-5 h-5 text-neutral-400" />
-                        </div>
-                    </Card>
-                </Link>
-
-                <Card hoverable title="Tạo phiếu chi" subtitle="Ghi nhận một khoản chi mới">
-                    <button
-                        type="button"
-                        onClick={goToCreate}
-                        className="flex items-center gap-3 w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-card"
-                    >
-                        <div className="w-12 h-12 rounded-card bg-accent-100 text-accent-700 flex items-center justify-center">
-                            <Wallet2 className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-h3 font-bold text-neutral-900">Phiếu chi mới</p>
-                            <p className="text-caption text-neutral-500">Click để tạo</p>
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-neutral-400" />
-                    </button>
-                </Card>
-            </div>
+            </>
+            )}
         </div>
     );
 }

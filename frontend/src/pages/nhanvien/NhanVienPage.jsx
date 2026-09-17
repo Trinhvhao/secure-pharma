@@ -64,6 +64,18 @@ const STATUS_LABEL = {
     NghiViec: 'Nghỉ việc',
 };
 
+const PN_STATUS_VARIANT = {
+    DaNhap:   'success',
+    ChoDuyet: 'warning',
+    Huy:      'danger',
+};
+
+const PN_STATUS_LABEL = {
+    DaNhap:   'Đã nhập',
+    ChoDuyet: 'Chờ duyệt',
+    Huy:      'Đã hủy',
+};
+
 // ─── Avatar ────────────────────────────────────────────────────────────────────
 
 function EmployeeAvatar({ name, role }) {
@@ -106,7 +118,7 @@ function StatMini({ label, value, color = 'primary' }) {
 
 // ─── Employee Detail Modal ────────────────────────────────────────────────────
 
-function EmployeeDetailModal({ nv, hoaDon = [], loadingHD = false, onClose, onEdit }) {
+function EmployeeDetailModal({ nv, hoaDon = [], phieuNhap = [], loadingHD = false, loadingPN = false, onClose, onEdit }) {
     if (!nv) return null;
 
     const soHoaDon = Number(nv.SoHoaDon) || 0;
@@ -259,6 +271,64 @@ function EmployeeDetailModal({ nv, hoaDon = [], loadingHD = false, onClose, onEd
                         </div>
                     )}
                 </div>
+
+                {/* Phiếu nhập history */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-body font-semibold text-neutral-800">Phiếu nhập đã lập</h3>
+                        <span className="text-caption text-neutral-500">{phieuNhap.length} phiếu gần nhất</span>
+                    </div>
+
+                    {loadingPN ? (
+                        <div className="text-center py-8 text-neutral-400 text-body">Đang tải phiếu nhập...</div>
+                    ) : phieuNhap.length === 0 ? (
+                        <div className="text-center py-8">
+                            <Package className="w-10 h-10 mx-auto text-neutral-200 mb-2" />
+                            <p className="text-body text-neutral-500">Chưa lập phiếu nhập nào</p>
+                        </div>
+                    ) : (
+                        <div className="border border-neutral-200 rounded-card overflow-hidden">
+                            <table className="w-full text-body">
+                                <thead className="bg-neutral-50 border-b border-neutral-200">
+                                    <tr>
+                                        <th className="px-4 py-2 text-left text-caption font-semibold text-neutral-600">Mã PN</th>
+                                        <th className="px-4 py-2 text-left text-caption font-semibold text-neutral-600">Ngày nhập</th>
+                                        <th className="px-4 py-2 text-left text-caption font-semibold text-neutral-600">Nhà cung cấp</th>
+                                        <th className="px-4 py-2 text-center text-caption font-semibold text-neutral-600">Số lô</th>
+                                        <th className="px-4 py-2 text-center text-caption font-semibold text-neutral-600">SL</th>
+                                        <th className="px-4 py-2 text-left text-caption font-semibold text-neutral-600">Trạng thái</th>
+                                        <th className="px-4 py-2 text-right text-caption font-semibold text-neutral-600">Tổng tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-neutral-100">
+                                    {phieuNhap.map((pn) => (
+                                        <tr key={pn.MaPN} className="hover:bg-neutral-50 transition-colors">
+                                            <td className="px-4 py-2.5">
+                                                <span className="font-mono text-neutral-500">#{pn.MaPN}</span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-neutral-700">
+                                                {dayjs(pn.NgayNhap).format('DD/MM/YYYY HH:mm')}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-neutral-700">{pn.TenNCC || '—'}</td>
+                                            <td className="px-4 py-2.5 text-center text-neutral-700">{pn.SoLo}</td>
+                                            <td className="px-4 py-2.5 text-center text-neutral-700">
+                                                {pn.TongSoLuong.toLocaleString('vi-VN')}
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                <Badge variant={PN_STATUS_VARIANT[pn.TrangThai] || 'neutral'} size="sm" dot>
+                                                    {PN_STATUS_LABEL[pn.TrangThai] || pn.TrangThai || '—'}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-mono font-semibold text-neutral-900">
+                                                {formatCurrency(pn.TongTien)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
         </Modal>
     );
@@ -297,6 +367,8 @@ function NhanVienPage() {
     const [detailNV, setDetailNV] = useState(null);
     const [hoaDon, setHoaDon] = useState([]);
     const [hoaDonLoading, setHoaDonLoading] = useState(false);
+    const [phieuNhap, setPhieuNhap] = useState([]);
+    const [phieuNhapLoading, setPhieuNhapLoading] = useState(false);
 
     // ── Confirm delete ──────────────────────────────────────────────────────
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -375,17 +447,22 @@ function NhanVienPage() {
         setDetailNV({ ...it });
         setHoaDon([]);
         setHoaDonLoading(true);
+        setPhieuNhap([]);
+        setPhieuNhapLoading(true);
         try {
-            const [detailRes, hdRes] = await Promise.all([
+            const [detailRes, hdRes, pnRes] = await Promise.all([
                 nhanVienService.getById(it.MaNV),
                 nhanVienService.getHoaDonByNV(it.MaNV, 10),
+                nhanVienService.getPhieuNhapByNV(it.MaNV, 10),
             ]);
             setDetailNV(detailRes.data);
             setHoaDon(hdRes.data || []);
+            setPhieuNhap(pnRes.data || []);
         } catch {
             toast.error('Không thể tải chi tiết nhân viên');
         } finally {
             setHoaDonLoading(false);
+            setPhieuNhapLoading(false);
         }
     }, []);
 
@@ -841,6 +918,8 @@ function NhanVienPage() {
                 nv={detailNV}
                 hoaDon={hoaDon}
                 loadingHD={hoaDonLoading}
+                phieuNhap={phieuNhap}
+                loadingPN={phieuNhapLoading}
                 onClose={() => setDetailNV(null)}
                 onEdit={openEdit}
             />

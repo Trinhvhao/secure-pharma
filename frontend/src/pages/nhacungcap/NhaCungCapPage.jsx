@@ -95,7 +95,9 @@ function StatMini({ label, value, color = 'primary' }) {
             STAT_MINI_COLOR[color]
         )}>
             <p className="text-caption opacity-80 mb-1">{label}</p>
-            <p className="text-h3 font-bold font-mono truncate">{value}</p>
+            <p className="text-h3 font-bold font-mono leading-tight break-words" title={String(value)}>
+                {value}
+            </p>
         </div>
     );
 }
@@ -110,7 +112,6 @@ function SupplierDetailModal({ ncc, phieuNhap = [], loadingPhieuNhap = false, on
     const soLo = Number(ncc.SoLo) || 0;
     const tongSoLuong = Number(ncc.TongSoLuongNhap) || 0;
     const tongSoLuongTon = Number(ncc.TongSoLuongTon) || 0;
-    const daBanRa = tongSoLuong - tongSoLuongTon;
     const trungBinh = soPhieu > 0 ? tongNhap / soPhieu : 0;
 
     return (
@@ -143,7 +144,7 @@ function SupplierDetailModal({ ncc, phieuNhap = [], loadingPhieuNhap = false, on
                             )}
                             <span className="flex items-center gap-1">
                                 <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
-                                Tham gia {ncc.CreatedAt ? dayjs(ncc.CreatedAt).format('DD/MM/YYYY') : '—'}
+                                Tạo hồ sơ {ncc.CreatedAt ? dayjs(ncc.CreatedAt).format('DD/MM/YYYY') : '—'}
                             </span>
                         </div>
                     </div>
@@ -158,6 +159,36 @@ function SupplierDetailModal({ ncc, phieuNhap = [], loadingPhieuNhap = false, on
                             Sửa
                         </Button>
                     </RoleGuard>
+                </div>
+
+                {/* Supplier profile */}
+                <div className="rounded-card border border-neutral-200 bg-neutral-50 p-4">
+                    <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <dt className="text-caption text-neutral-500">Mã số thuế</dt>
+                            <dd className="mt-1 text-body font-medium text-neutral-800">
+                                {ncc.MaSoThue || '—'}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="text-caption text-neutral-500">Email</dt>
+                            <dd className="mt-1 break-all text-body font-medium text-neutral-800">
+                                {ncc.Email || '—'}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="text-caption text-neutral-500">Người liên hệ</dt>
+                            <dd className="mt-1 text-body font-medium text-neutral-800">
+                                {ncc.NguoiLienHe || '—'}
+                            </dd>
+                        </div>
+                    </dl>
+                    {ncc.GhiChu && (
+                        <div className="mt-4 border-t border-neutral-200 pt-3">
+                            <p className="text-caption text-neutral-500">Ghi chú</p>
+                            <p className="mt-1 whitespace-pre-wrap text-body text-neutral-700">{ncc.GhiChu}</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Stats grid */}
@@ -190,7 +221,13 @@ function SupplierDetailModal({ ncc, phieuNhap = [], loadingPhieuNhap = false, on
 
                 {/* Sub stats - inventory */}
                 {soPhieu > 0 && (
-                    <div className="grid grid-cols-3 gap-3 p-4 bg-neutral-50 rounded-card">
+                    <div className="grid grid-cols-2 gap-3 rounded-card bg-neutral-50 p-4 sm:grid-cols-4">
+                        <div className="text-center">
+                            <p className="text-caption text-neutral-500 mb-0.5">Lần đầu nhập</p>
+                            <p className="text-body font-semibold text-neutral-900">
+                                {ncc.LanDauNhap ? dayjs(ncc.LanDauNhap).format('DD/MM/YYYY') : '—'}
+                            </p>
+                        </div>
                         <div className="text-center">
                             <p className="text-caption text-neutral-500 mb-0.5">Tổng lô</p>
                             <p className="text-h3 font-bold text-neutral-900 font-mono">{soLo}</p>
@@ -202,11 +239,9 @@ function SupplierDetailModal({ ncc, phieuNhap = [], loadingPhieuNhap = false, on
                             </p>
                         </div>
                         <div className="text-center">
-                            <p className="text-caption text-neutral-500 mb-0.5">Còn tồn / đã bán</p>
-                            <p className="text-h3 font-bold text-neutral-900 font-mono">
-                                <span className="text-success-700">{tongSoLuongTon.toLocaleString('vi-VN')}</span>
-                                <span className="text-neutral-400 mx-1">/</span>
-                                <span className="text-warning-700">{daBanRa.toLocaleString('vi-VN')}</span>
+                            <p className="text-caption text-neutral-500 mb-0.5">Còn tồn</p>
+                            <p className="text-h3 font-bold text-success-700 font-mono">
+                                {tongSoLuongTon.toLocaleString('vi-VN')}
                             </p>
                         </div>
                     </div>
@@ -290,7 +325,15 @@ function NhaCungCapPage() {
     // ── Modal: create / edit ────────────────────────────────────────────────
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
-    const [formData, setFormData] = useState({ tenNCC: '', diaChi: '', sdt: '' });
+    const [formData, setFormData] = useState({
+        tenNCC: '',
+        diaChi: '',
+        sdt: '',
+        email: '',
+        maSoThue: '',
+        nguoiLienHe: '',
+        ghiChu: '',
+    });
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -356,7 +399,15 @@ function NhaCungCapPage() {
     const openCreate = () => {
         setEditing(null);
         setFormError('');
-        setFormData({ tenNCC: '', diaChi: '', sdt: '' });
+        setFormData({
+            tenNCC: '',
+            diaChi: '',
+            sdt: '',
+            email: '',
+            maSoThue: '',
+            nguoiLienHe: '',
+            ghiChu: '',
+        });
         setModalOpen(true);
     };
 
@@ -368,6 +419,10 @@ function NhaCungCapPage() {
             tenNCC: ncc.TenNCC,
             diaChi: ncc.DiaChi || '',
             sdt: ncc.SDT || '',
+            email: ncc.Email || '',
+            maSoThue: ncc.MaSoThue || '',
+            nguoiLienHe: ncc.NguoiLienHe || '',
+            ghiChu: ncc.GhiChu || '',
         });
         setModalOpen(true);
     };
@@ -400,6 +455,15 @@ function NhaCungCapPage() {
             setFormError('Vui lòng nhập tên nhà cung cấp');
             return;
         }
+        if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+            setFormError('Email không đúng định dạng');
+            return;
+        }
+        if (formData.maSoThue.trim() && !/^\d{10}(?:-\d{3})?$/.test(formData.maSoThue.trim())) {
+            setFormError('Mã số thuế phải gồm 10 chữ số hoặc có dạng 0123456789-001');
+            return;
+        }
+
         setSubmitting(true);
         try {
             if (editing) {
@@ -461,7 +525,6 @@ function NhaCungCapPage() {
                                 {SEGMENT_LABEL[it.Segment] || it.Segment || '—'}
                             </Badge>
                         </div>
-                        <span className="text-caption text-neutral-500 font-mono">#{it.MaNCC}</span>
                     </div>
                 </div>
             ),
@@ -632,7 +695,7 @@ function NhaCungCapPage() {
             <SearchBar
                 value={keywordInput}
                 onChange={setKeywordInput}
-                placeholder="Tìm tên nhà cung cấp, địa chỉ..."
+                placeholder="Tìm tên, địa chỉ, email, mã số thuế..."
                 title="Tìm kiếm và lọc"
                 description="Lọc theo từ khóa hoặc phân khúc nhà cung cấp."
                 meta={loading ? 'Đang cập nhật...' : `${pagination.total} kết quả`}
@@ -743,7 +806,7 @@ function NhaCungCapPage() {
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
                 title={editing ? 'Sửa nhà cung cấp' : 'Thêm nhà cung cấp'}
-                size="md"
+                size="lg"
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <Input
@@ -768,6 +831,39 @@ function NhaCungCapPage() {
                         onChange={(e) => setFormData({ ...formData, sdt: e.target.value })}
                         placeholder="VD: 02812345678"
                         hint="10–11 chữ số"
+                    />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Input
+                            label="Email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            maxLength={254}
+                            placeholder="VD: lienhe@duocpham.vn"
+                        />
+                        <Input
+                            label="Mã số thuế"
+                            value={formData.maSoThue}
+                            onChange={(e) => setFormData({ ...formData, maSoThue: e.target.value })}
+                            maxLength={14}
+                            placeholder="VD: 0123456789"
+                            hint="10 số hoặc dạng 0123456789-001"
+                        />
+                    </div>
+                    <Input
+                        label="Người liên hệ"
+                        value={formData.nguoiLienHe}
+                        onChange={(e) => setFormData({ ...formData, nguoiLienHe: e.target.value })}
+                        maxLength={200}
+                        placeholder="VD: Nguyễn Văn An"
+                    />
+                    <Textarea
+                        label="Ghi chú"
+                        value={formData.ghiChu}
+                        onChange={(e) => setFormData({ ...formData, ghiChu: e.target.value })}
+                        maxLength={1000}
+                        placeholder="Thông tin giao hàng, thanh toán hoặc lưu ý khác"
+                        rows={3}
                     />
 
                     {formError && (

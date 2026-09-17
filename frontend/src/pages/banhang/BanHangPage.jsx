@@ -38,6 +38,7 @@ import Button from '../../components/ui/Button';
 import PageHeader from '../../components/ui/PageHeader';
 import { formatCurrency } from '../../utils/format';
 import { invoiceListNavigationState } from './banHangFlow';
+import CheckoutSuccessModal from './CheckoutSuccessModal';
 
 // ================================================================
 // HELPERS
@@ -275,6 +276,13 @@ function BanHangPage() {
   const [giamGia, setGiamGia] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Modal thanh toán thành công ──────────────────────────────
+  // Lưu HĐ vừa tạo để hiển thị Success Modal tại chỗ thay vì navigate đi.
+  // User chủ động bấm "Bán tiếp" (đóng modal) hoặc "Xem chi tiết" (navigate).
+  const [lastInvoice, setLastInvoice] = useState(null);
+  // Snapshot tên KH để hiển thị trong modal sau khi selectedKH đã bị clear.
+  const [lastCustomerName, setLastCustomerName] = useState('');
+
   // ── Tab view (mobile/responsive) ───────────────────────────
   const [view, setView] = useState('search');
 
@@ -447,6 +455,16 @@ function BanHangPage() {
   }, [cart.length]);
 
   // ================================================================
+  // XEM CHI TIẾT HÓA ĐƠN VỪA TẠO
+  // ================================================================
+  const handleViewInvoiceDetail = useCallback(() => {
+    if (!lastInvoice) return;
+    const destination = invoiceListNavigationState(lastInvoice.MaHD);
+    setLastInvoice(null);
+    navigate(destination.pathname, { state: destination.state });
+  }, [lastInvoice, navigate]);
+
+  // ================================================================
   // SUBMIT
   // ================================================================
   const handleSubmit = async () => {
@@ -466,14 +484,18 @@ function BanHangPage() {
         giamGia: giamGiaNum,
         items: cart.map(it => ({ maThuoc: it.MaThuoc, soLuong: it.soLuong })),
       });
-      toast.success(`Hóa đơn #${res.data.MaHD} tạo thành công!`);
+      // Reset giỏ + form NGAY, rồi hiện Success Modal.
+      // Trước đây code cũ navigate('/hoa-don') ngay → user bị giật sang trang khác.
+      // Giờ giữ user lại POS, modal có nút "Xem chi tiết" để chủ động đi.
+      const usedKH = selectedKH;
       setCart([]);
       setTienDua('');
       setGiamGia('');
       setSelectedKH(null);
       setKhSearch('');
-      const destination = invoiceListNavigationState(res.data.MaHD);
-      navigate(destination.pathname, { state: destination.state });
+      setLastCustomerName(usedKH?.TenKH || '');
+      setLastInvoice(res.data);
+      toast.success(`Đã thanh toán — HĐ #${res.data.MaHD}`, { icon: '✅' });
     } catch (err) {
       const msg = err.response?.data?.error?.message || 'Tạo hóa đơn thất bại';
       toast.error(msg);
@@ -855,6 +877,17 @@ function BanHangPage() {
             </div>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SUCCESS MODAL — hiển thị ngay sau khi thanh toán        */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <CheckoutSuccessModal
+        open={!!lastInvoice}
+        invoice={lastInvoice}
+        customerName={lastCustomerName}
+        onClose={() => setLastInvoice(null)}
+        onViewDetail={handleViewInvoiceDetail}
+      />
     </div>
   );
 }

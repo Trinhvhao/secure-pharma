@@ -13,6 +13,10 @@ const phieuThuService = {
     const response = await api.post('/phieu-thu', { soTien, noiDung });
     return response.data;
   },
+  getById: async (maPhieuThu) => {
+    const response = await api.get(`/phieu-thu/${maPhieuThu}`);
+    return response.data;
+  },
 };
 
 export default phieuThuService;

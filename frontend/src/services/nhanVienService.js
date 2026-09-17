@@ -46,6 +46,14 @@ const nhanVienService = {
         return response.data;
     },
 
+    /** Lịch sử phiếu nhập đã lập */
+    getPhieuNhapByNV: async (id, limit = 10) => {
+        const response = await api.get(`/nhan-vien/${id}/phieu-nhap`, {
+            params: { limit },
+        });
+        return response.data;
+    },
+
     /** Tạo nhân viên mới */
     create: async (data) => {
         const response = await api.post('/nhan-vien', data);
