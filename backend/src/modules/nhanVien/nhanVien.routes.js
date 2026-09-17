@@ -26,6 +26,7 @@ router.get('/stats', ctrl.getStats);
 router.get('/', ctrl.getAll);
 router.get('/:id', ctrl.getById);
 router.get('/:id/hoa-don', ctrl.getHoaDonByNV);
+router.get('/:id/phieu-nhap', ctrl.getPhieuNhapByNV);
 
 router.post('/', writeLimiter, audit('CREATE_NV'), ctrl.create);
 router.put('/:id', writeLimiter, audit('UPDATE_NV'), ctrl.update);

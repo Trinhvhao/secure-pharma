@@ -76,11 +76,11 @@ async function getById(maNV) {
             SELECT
                 (SELECT COUNT(*) FROM HoaDon hd WHERE hd.MaNV = nv.MaNV) AS SoHoaDon,
                 (SELECT ISNULL(SUM(hd.TongTien),0) FROM HoaDon hd WHERE hd.MaNV = nv.MaNV AND hd.TrangThai = N'DaThanhToan') AS TongBan,
-                (SELECT COUNT(*) FROM PhieuNhap pn WHERE pn.MaNV = nv.MaNV AND pn.TrangThai = N'DaNhap') AS SoPhieuNhap,
+                (SELECT COUNT(*) FROM PhieuNhap pn WHERE pn.MaNV = nv.MaNV) AS SoPhieuNhap,
                 (SELECT ISNULL(SUM(l.SoLuongNhap*l.GiaNhap),0)
                     FROM LoThuoc_ChiTietNhap l
                     INNER JOIN PhieuNhap pn ON l.MaPN = pn.MaPN
-                    WHERE pn.MaNV = nv.MaNV AND pn.TrangThai = N'DaNhap') AS TongNhap,
+                    WHERE pn.MaNV = nv.MaNV) AS TongNhap,
                 (SELECT COUNT(*) FROM PhieuChi pc WHERE pc.MaNV = nv.MaNV) AS SoPhieuChi,
                 (SELECT ISNULL(SUM(pc.SoTien),0) FROM PhieuChi pc WHERE pc.MaNV = nv.MaNV) AS TongChi
             FROM NhanVien nv WHERE nv.MaNV = @maNV
@@ -134,6 +134,39 @@ async function getHoaDonByNV(maNV, limit = 10) {
         TongTien: Number(row.TongTien) || 0,
         SoMatHang: Number(row.SoMatHang) || 0,
         TongSoLuong: Number(row.TongSoLuong) || 0,
+    }));
+}
+
+/**
+ * Lịch sử phiếu nhập đã lập của 1 NV (mới nhất trước).
+ */
+async function getPhieuNhapByNV(maNV, limit = 10) {
+    const safeLimit = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+    const r = await db.query(`
+        SELECT TOP (@limit)
+            pn.MaPN, pn.NgayNhap, pn.TrangThai,
+            ncc.TenNCC,
+            ISNULL((
+                SELECT COUNT(*) FROM LoThuoc_ChiTietNhap l WHERE l.MaPN = pn.MaPN
+            ), 0) AS SoLo,
+            ISNULL((
+                SELECT SUM(l.SoLuongNhap) FROM LoThuoc_ChiTietNhap l WHERE l.MaPN = pn.MaPN
+            ), 0) AS TongSoLuong,
+            ISNULL((
+                SELECT SUM(l.SoLuongNhap * l.GiaNhap)
+                FROM LoThuoc_ChiTietNhap l WHERE l.MaPN = pn.MaPN
+            ), 0) AS TongTien
+        FROM PhieuNhap pn
+        LEFT JOIN NhaCungCap ncc ON pn.MaNCC = ncc.MaNCC
+        WHERE pn.MaNV = @maNV
+        ORDER BY pn.MaPN DESC
+    `, { maNV, limit: safeLimit });
+
+    return r.recordset.map((row) => ({
+        ...row,
+        SoLo: Number(row.SoLo) || 0,
+        TongSoLuong: Number(row.TongSoLuong) || 0,
+        TongTien: Number(row.TongTien) || 0,
     }));
 }
 
@@ -244,6 +277,7 @@ module.exports = {
     getAll,
     getById,
     getHoaDonByNV,
+    getPhieuNhapByNV,
     getStats,
     create,
     update,

@@ -14,6 +14,39 @@ const nccService = require('./nhaCungCap.service');
 const { success, created, notFound, error, successPaginated } = require('../../utils/response');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
+function normalizeNullable(value) {
+    const normalized = String(value || '').trim();
+    return normalized || null;
+}
+
+function parseSupplierPayload(body = {}) {
+    return {
+        tenNCC: String(body.tenNCC || '').trim(),
+        diaChi: normalizeNullable(body.diaChi),
+        sdt: normalizeNullable(body.sdt),
+        email: normalizeNullable(body.email),
+        maSoThue: normalizeNullable(body.maSoThue),
+        nguoiLienHe: normalizeNullable(body.nguoiLienHe),
+        ghiChu: normalizeNullable(body.ghiChu),
+    };
+}
+
+function validateSupplierPayload(data) {
+    if (!data.tenNCC) return 'Vui lòng nhập tên nhà cung cấp';
+    if (data.tenNCC.length > 400) return 'Tên nhà cung cấp tối đa 400 ký tự';
+    if (data.diaChi && data.diaChi.length > 1000) return 'Địa chỉ tối đa 1000 ký tự';
+    if (data.sdt && !/^\d{10,11}$/.test(data.sdt)) return 'Số điện thoại phải là 10-11 chữ số';
+    if (data.email && (data.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))) {
+        return 'Email không đúng định dạng';
+    }
+    if (data.maSoThue && !/^\d{10}(?:-\d{3})?$/.test(data.maSoThue)) {
+        return 'Mã số thuế phải gồm 10 chữ số hoặc có dạng 0123456789-001';
+    }
+    if (data.nguoiLienHe && data.nguoiLienHe.length > 200) return 'Người liên hệ tối đa 200 ký tự';
+    if (data.ghiChu && data.ghiChu.length > 1000) return 'Ghi chú tối đa 1000 ký tự';
+    return null;
+}
+
 const getAll = asyncHandler(async (req, res) => {
     const { keyword = '', segment = '' } = req.query;
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -48,25 +81,20 @@ const getPhieuNhapByNCC = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-    const { tenNCC, diaChi, sdt } = req.body;
-    if (!tenNCC) return error(res, 'Vui lòng nhập tên nhà cung cấp', 400);
+    const data = parseSupplierPayload(req.body);
+    const validationError = validateSupplierPayload(data);
+    if (validationError) return error(res, validationError, 400);
 
-    // Validate SĐT: 10-11 số
-    if (sdt && sdt.trim() && !/^\d{10,11}$/.test(sdt.trim())) {
-        return error(res, 'Số điện thoại phải là 10-11 chữ số', 400);
-    }
-
-    const item = await nccService.create({ tenNCC, diaChi: diaChi || null, sdt: sdt ? sdt.trim() : null });
+    const item = await nccService.create(data);
     return created(res, item, 'Tạo nhà cung cấp thành công');
 });
 
 const update = asyncHandler(async (req, res) => {
-    const { tenNCC, diaChi, sdt } = req.body;
-    if (!tenNCC) return error(res, 'Vui lòng nhập tên nhà cung cấp', 400);
-    if (sdt && sdt.trim() && !/^\d{10,11}$/.test(sdt.trim())) {
-        return error(res, 'Số điện thoại phải là 10-11 chữ số', 400);
-    }
-    const item = await nccService.update(parseInt(req.params.id, 10), { tenNCC, diaChi: diaChi || null, sdt: sdt ? sdt.trim() : null });
+    const data = parseSupplierPayload(req.body);
+    const validationError = validateSupplierPayload(data);
+    if (validationError) return error(res, validationError, 400);
+
+    const item = await nccService.update(parseInt(req.params.id, 10), data);
     if (!item) return notFound(res, `Không tìm thấy NCC #${req.params.id}`);
     return success(res, item, 'Cập nhật thành công');
 });

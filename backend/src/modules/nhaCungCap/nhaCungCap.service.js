@@ -2,7 +2,7 @@
  * NhaCungCap Service - CRUD + Stats + Lịch sử nhập hàng
  *
  * Nghiệp vụ:
- *  - CRUD cơ bản (TenNCC, DiaChi, SDT)
+ *  - CRUD hồ sơ cơ bản (tên, liên hệ, mã số thuế, ghi chú)
  *  - Stats: tổng NCC, mới trong tháng, có SĐT, hoạt động (đã nhập trong 90 ngày)
  *  - Segment: phân khúc theo mức nhập (ChienLuoc / ThuongXuyen / ThinhThoang / Moi)
  *      ChienLuoc    : tổng nhập ≥ 50 triệu
@@ -37,8 +37,14 @@ async function getAll({ keyword = '', page = 1, limit = 10, segment = '' } = {})
 
     const filters = [];
     if (keyword && keyword.trim()) {
-        // Tìm theo TenNCC, DiaChi
-        filters.push('(ncc.TenNCC LIKE @kw OR ncc.DiaChi LIKE @kw)');
+        // Tìm theo thông tin nhận diện và liên hệ chính.
+        filters.push(`(
+            ncc.TenNCC LIKE @kw
+            OR ncc.DiaChi LIKE @kw
+            OR ncc.Email LIKE @kw
+            OR ncc.MaSoThue LIKE @kw
+            OR ncc.NguoiLienHe LIKE @kw
+        )`);
         params.kw = `%${keyword.trim()}%`;
     }
     const whereSql = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
@@ -65,6 +71,10 @@ async function getAll({ keyword = '', page = 1, limit = 10, segment = '' } = {})
                 ncc.TenNCC,
                 ncc.DiaChi,
                 ncc.SDT,
+                ncc.Email,
+                ncc.MaSoThue,
+                ncc.NguoiLienHe,
+                ncc.GhiChu,
                 ncc.CreatedAt,
                 ncc.UpdatedAt,
                 COUNT(DISTINCT pn.MaPN) AS SoPhieu,
@@ -77,7 +87,9 @@ async function getAll({ keyword = '', page = 1, limit = 10, segment = '' } = {})
             LEFT JOIN LoThuoc_ChiTietNhap l
                 ON l.MaPN = pn.MaPN
             ${whereSql}
-            GROUP BY ncc.MaNCC, ncc.TenNCC, ncc.DiaChi, ncc.SDT, ncc.CreatedAt, ncc.UpdatedAt
+            GROUP BY ncc.MaNCC, ncc.TenNCC, ncc.DiaChi, ncc.SDT,
+                     ncc.Email, ncc.MaSoThue, ncc.NguoiLienHe, ncc.GhiChu,
+                     ncc.CreatedAt, ncc.UpdatedAt
         )`;
 
     const countR = await db.query(`
@@ -135,7 +147,9 @@ async function getById(maNCC) {
             INNER JOIN PhieuNhap pn ON l.MaPN = pn.MaPN
             WHERE pn.MaNCC = @maNCC AND pn.TrangThai = N'DaNhap'
         )
-        SELECT ncc.MaNCC, ncc.TenNCC, ncc.DiaChi, ncc.SDT, ncc.CreatedAt, ncc.UpdatedAt,
+        SELECT ncc.MaNCC, ncc.TenNCC, ncc.DiaChi, ncc.SDT,
+               ncc.Email, ncc.MaSoThue, ncc.NguoiLienHe, ncc.GhiChu,
+               ncc.CreatedAt, ncc.UpdatedAt,
                na.SoPhieu, na.TongNhap, na.LanDauNhap, na.LanCuoiNhap,
                ls.SoLo, ls.TongSoLuongNhap, ls.TongSoLuongTon
         FROM NhaCungCap ncc
@@ -266,13 +280,19 @@ async function getStats() {
 
 async function create(data) {
     const r = await db.query(
-        `INSERT INTO NhaCungCap (TenNCC, DiaChi, SDT)
-         OUTPUT INSERTED.MaNCC, INSERTED.TenNCC, INSERTED.DiaChi, INSERTED.SDT, INSERTED.CreatedAt, INSERTED.UpdatedAt
-         VALUES (@tenNCC, @diaChi, @sdt)`,
+        `INSERT INTO NhaCungCap (TenNCC, DiaChi, SDT, Email, MaSoThue, NguoiLienHe, GhiChu)
+         OUTPUT INSERTED.MaNCC, INSERTED.TenNCC, INSERTED.DiaChi, INSERTED.SDT,
+                INSERTED.Email, INSERTED.MaSoThue, INSERTED.NguoiLienHe, INSERTED.GhiChu,
+                INSERTED.CreatedAt, INSERTED.UpdatedAt
+         VALUES (@tenNCC, @diaChi, @sdt, @email, @maSoThue, @nguoiLienHe, @ghiChu)`,
         {
             tenNCC: data.tenNCC,
             diaChi: data.diaChi || null,
-            sdt: data.sdt || null
+            sdt: data.sdt || null,
+            email: data.email || null,
+            maSoThue: data.maSoThue || null,
+            nguoiLienHe: data.nguoiLienHe || null,
+            ghiChu: data.ghiChu || null
         }
     );
     return r.recordset[0];
@@ -281,14 +301,27 @@ async function create(data) {
 async function update(maNCC, data) {
     const r = await db.query(
         `UPDATE NhaCungCap
-         SET TenNCC = @tenNCC, DiaChi = @diaChi, SDT = @sdt, UpdatedAt = GETDATE()
-         OUTPUT INSERTED.MaNCC, INSERTED.TenNCC, INSERTED.DiaChi, INSERTED.SDT, INSERTED.CreatedAt, INSERTED.UpdatedAt
+         SET TenNCC = @tenNCC,
+             DiaChi = @diaChi,
+             SDT = @sdt,
+             Email = @email,
+             MaSoThue = @maSoThue,
+             NguoiLienHe = @nguoiLienHe,
+             GhiChu = @ghiChu,
+             UpdatedAt = GETDATE()
+         OUTPUT INSERTED.MaNCC, INSERTED.TenNCC, INSERTED.DiaChi, INSERTED.SDT,
+                INSERTED.Email, INSERTED.MaSoThue, INSERTED.NguoiLienHe, INSERTED.GhiChu,
+                INSERTED.CreatedAt, INSERTED.UpdatedAt
          WHERE MaNCC = @maNCC`,
         {
             maNCC,
             tenNCC: data.tenNCC,
             diaChi: data.diaChi || null,
-            sdt: data.sdt || null
+            sdt: data.sdt || null,
+            email: data.email || null,
+            maSoThue: data.maSoThue || null,
+            nguoiLienHe: data.nguoiLienHe || null,
+            ghiChu: data.ghiChu || null
         }
     );
     return r.recordset[0] || null;

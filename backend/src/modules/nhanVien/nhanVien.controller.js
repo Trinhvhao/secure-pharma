@@ -42,6 +42,15 @@ const getHoaDonByNV = asyncHandler(async (req, res) => {
     return success(res, items);
 });
 
+const getPhieuNhapByNV = asyncHandler(async (req, res) => {
+    const maNV = parseInt(req.params.id, 10);
+    const nv = await nvService.getById(maNV);
+    if (!nv) return notFound(res, `Không tìm thấy NV #${maNV}`);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const items = await nvService.getPhieuNhapByNV(maNV, limit);
+    return success(res, items);
+});
+
 const create = asyncHandler(async (req, res) => {
     const { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai } = req.body;
     if (!tenNV) return error(res, 'Vui lòng nhập tên nhân viên', 400);
@@ -87,4 +96,4 @@ const remove = asyncHandler(async (req, res) => {
     return success(res, null, 'Xóa nhân viên thành công');
 });
 
-module.exports = { getAll, getStats, getById, getHoaDonByNV, create, update, remove };
+module.exports = { getAll, getStats, getById, getHoaDonByNV, getPhieuNhapByNV, create, update, remove };
