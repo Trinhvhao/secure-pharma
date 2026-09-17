@@ -12,7 +12,8 @@
     "db:seed": "node src/scripts/migrate.js seed",
     "db:accounts": "node src/scripts/migrate.js accounts",
     "db:status": "node src/scripts/migrate.js status",
-    "db:reset": "node src/scripts/migrate.js reset"
+    "db:reset": "node src/scripts/migrate.js reset",
+    "db:generate": "node src/scripts/generate_tables_sql.js --output database/02_generated_tables.sql"
   },
   "keywords": [
     "pharmacy",
