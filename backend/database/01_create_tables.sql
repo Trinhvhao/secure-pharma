@@ -41,6 +41,10 @@ BEGIN
         TenNCC NVARCHAR(400) NOT NULL,
         DiaChi NVARCHAR(1000),
         SDT VARCHAR(64), -- AES-256 encrypted (base64 ~24 chars)
+        Email NVARCHAR(254),
+        MaSoThue VARCHAR(20),
+        NguoiLienHe NVARCHAR(200),
+        GhiChu NVARCHAR(1000),
         CreatedAt DATETIME2 DEFAULT GETDATE(),
         UpdatedAt DATETIME2 DEFAULT GETDATE()
     );
