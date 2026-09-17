@@ -37,8 +37,19 @@ GO
 -- Trước hết kiểm tra MaLo max để tránh trùng
 DECLARE @MaxMaLo INT = ISNULL((SELECT MAX(MaLo) FROM LoThuoc_ChiTietNhap), 0);
 
--- Lấy MaPN mẫu + tính NgaySX theo shelf-life chuẩn
-DECLARE @PN1 INT = 5;  -- MaPN 5 là 'DaNhap'
+-- Đảm bảo tồn tại ít nhất 1 PhieuNhap hợp lệ cho các INSERT FK.
+-- Seed 10_seed_inventory.sql tạo MaPN=1-4. Nếu bảng rỗng, tạo MaPN=5.
+-- Nếu đã có MaPN nào đó, dùng MaPN đầu tiên (idempotent).
+DECLARE @PN1 INT = ISNULL((SELECT TOP 1 MaPN FROM PhieuNhap ORDER BY MaPN), -1);
+IF @PN1 = -1
+BEGIN
+    SET IDENTITY_INSERT PhieuNhap ON;
+    INSERT INTO PhieuNhap (MaPN, MaNCC, MaNV, NgayNhap, TrangThai)
+        VALUES (5, 1, 1, GETDATE(), N'DaNhap');
+    SET IDENTITY_INSERT PhieuNhap OFF;
+    SET @PN1 = 5;
+    PRINT 'Tao tam PhieuNhap=5 vi bang rong';
+END
 
 -- Shelf-life chuẩn: 365 ngày cho hầu hết thuốc
 -- MaThuoc=3 (Ibuprofen): 106 ngày (lô hiện có)
@@ -161,10 +172,17 @@ END
 -- Tổng tồn ≈ 496 SP → bán ~6 SP/ngày → vòng quay ≈ 83 ngày
 -- Seed 5 ngày bán (11-15/09/2026), mỗi ngày 1 hóa đơn.
 
-DECLARE @HD101 INT, @HD102 INT, @HD103 INT, @HD104 INT, @HD105 INT;
+-- Khởi tạo biến TRƯỚC IF NOT EXISTS để tránh NULL khi block skip (idempotent re-run)
+DECLARE @HD101 INT = -1, @HD102 INT = -1, @HD103 INT = -1, @HD104 INT = -1, @HD105 INT = -1;
 
 -- HĐ 101: 2026-09-11, bán 5 SP (MaKH=1)
-IF NOT EXISTS (SELECT 1 FROM HoaDon WHERE MaHD BETWEEN 101 AND 105)
+-- Idempotent check dùng (NgayGioLap + MaNV) thay vì MaHD vì MaHD là IDENTITY,
+-- giá trị thực phụ thuộc thứ tự seed (không cố định 101-105).
+IF NOT EXISTS (
+    SELECT 1 FROM HoaDon
+    WHERE NgayGioLap >= '2026-09-11' AND NgayGioLap < '2026-09-12'
+      AND MaNV = 2
+)
 BEGIN
     INSERT INTO HoaDon (MaNV, MaKH, NgayGioLap, TongTien, TienKhachDua, TienTraLai, TrangThai)
     VALUES (2, 1, '2026-09-11 10:00:00', 175000, 200000, 25000, N'DaThanhToan');
