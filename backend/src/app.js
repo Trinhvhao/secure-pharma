@@ -23,8 +23,8 @@ app.use(helmet());
 
 // CORS - cho phép FE dev server
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
-        ? process.env.FRONTEND_URL 
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL
         : ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true
 }));
@@ -35,6 +35,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // XSS Protection - Deep recursive sanitize (nested objects, arrays)
 app.use(xssSanitize);
+
+// ========== Swagger UI / OpenAPI ==========
+// Mount thủ công ở đây (không qua helmet chặn / tài nguyên tĩnh swagger-ui)
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: 'SecurePharma API Docs',
+    customCss: '.swagger-ui .topbar { display: none }' // ẩn thanh topbar mặc định
+}));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
