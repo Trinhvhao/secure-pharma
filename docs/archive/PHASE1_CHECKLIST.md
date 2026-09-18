@@ -26,7 +26,7 @@ Theo [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) mục **9. Phase 1 �
 | 9 | Endpoint `/api/health` | ✅ | `backend/src/app.js` |
 | 10 | Server entry point (graceful shutdown) | ✅ | `backend/src/server.js` |
 | 11 | XSS middleware (sẵn sàng cho Phase 2) | ✅ | `backend/src/app.js` |
-| 12 | Seed accounts script (sẵn sàng cho Phase 2) | ✅ | `backend/src/seed.js` |
+| 12 | Seed accounts script (sẵn sàng cho Phase 2) | ✅ | `backend/src/scripts/migrate.js` (seedAccounts) |
 
 ### 🟢 Frontend (React + Vite + Tailwind)
 
@@ -105,7 +105,8 @@ SecurePharma/
 │   ├── src/
 │   │   ├── server.js                      ✅ Entry point
 │   │   ├── app.js                         ✅ Express app
-│   │   ├── seed.js                        ✅ Seed accounts (Phase 2)
+│   │   ├── scripts/
+│   │   │   └── migrate.js                   ✅ Migrate + seed accounts
 │   │   ├── config/
 │   │   │   └── db.js                      ✅ Kết nối SQL Server
 │   │   ├── middleware/

@@ -163,7 +163,7 @@ Middleware XSS trong dự án **đặc biệt KHÔNG escape** các field `passwo
 
 - **Code mã hoá/giải mã:** `backend/src/modules/khachHang/khachHang.service.js` (hàm `encryptAES`, `decryptAES`)
 - **Cột DB:** `KhachHang.SDT` lưu dạng **chuỗi hex** (đã mã hoá), không lưu plaintext
-- **Patch schema:** `backend/database/06_patch_aes_sdt.sql` (thay đổi cột sang `NVARCHAR(MAX)` để chứa hex)
+- **Patch schema:** `backend/database/99_schema_patches.sql` (ALTER cột SDT sang `VARCHAR(64)`)
 - **Script backfill:** `backend/src/scripts/patch_sdt_aes.js` (mã hoá dữ liệu cũ một lần)
 - **Cấu hình key/IV:** `AES_KEY` và `AES_IV` trong `backend/.env`
 
