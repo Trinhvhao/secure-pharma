@@ -1,6 +1,6 @@
 -- ============================================================
 -- SCRIPT GENERATED TỰ ĐỘNG - KHÔNG SỬA TAY
--- Ngày tạo: 2026-09-17 16:12:08 UTC
+-- Ngày tạo: 2026-09-17 16:38:03 UTC
 -- Server:  LAPTOP-3CSTMP8:1433
 -- Database: SecurePharmaDB
 -- Tool:    node src/scripts/generate_tables_sql.js
