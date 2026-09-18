@@ -84,6 +84,17 @@ Các lệnh `db:*` có sẵn (xem `backend/package.json`):
 > ⚠️ `db:reset` là **destructive** — chỉ dùng trên môi trường dev, sẽ xóa hết dữ liệu.
 > 💡 `db:generate` chỉ xuất **schema (tables/FK/index/CHECK)** — KHÔNG xuất dữ liệu. Bạn tự lo phần INSERT bằng `db:seed` hoặc viết script riêng.
 
+#### 🤖 Auto-discover patches
+
+Bước **extra patches** (99_schema_patches, 18_system_config, 03_inventory, …) được `migrate.js` **tự động quét** từ folder `database/`. Quy tắc đặt tên để tự động được pick:
+
+- File phải có dạng `NN_description.sql` (NN là số thứ tự 2 chữ số, vd: `03_inventory.sql`, `99_schema_patches.sql`)
+- KHÔNG bắt đầu bằng `01_` hoặc `02_` (đó là 2 file đặc biệt đã được xử lý riêng)
+- KHÔNG đặt trong `database/archive/` (đã được ignore)
+- Thứ tự chạy = sort alphabetically = theo số NN
+
+**Lợi ích:** Thêm patch mới chỉ cần tạo file `NN_xxx.sql` đúng quy tắc → chạy `npm run db:setup` hoặc `npm run db:patches` là tự pick. KHÔNG cần sửa `migrate.js`.
+
 ### 2.4. Verify database
 
 Trong SSMS:
