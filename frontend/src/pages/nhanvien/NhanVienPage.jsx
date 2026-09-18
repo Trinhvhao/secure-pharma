@@ -1,7 +1,11 @@
 /**
  * NhanVienPage - Quản lý nhân viên (Admin only)
  *
- * Nâng cấp UI tương tự KhachHangPage / NhaCungCapPage:
+ * Tính năng (theo đề bài 2.1.1.7):
+ *  • CRUD nhân viên (tạo / sửa / xóa)
+ *  • CẤP TÀI KHOẢN cho nhân viên (username + password + vai trò)
+ *  • ĐỔI VAI TRÒ / KHÓA-MỞ KHÓA tài khoản (phân quyền)
+ *  • Reset mật khẩu (sinh mật khẩu tạm)
  *  • Stats: Tổng NV, Đang làm, Có tài khoản, Mới 30 ngày
  *  • VaiTro badges: Admin / Bán hàng / Kho
  *  • TrangThai badges: Đang làm / Nghỉ việc
@@ -15,6 +19,7 @@ import toast from 'react-hot-toast';
 import {
     UserCog, Plus, Edit2, Trash2, Users, Eye, Phone, Calendar,
     ShoppingCart, Package, Wallet, ShieldCheck, X,
+    KeyRound, UserPlus, RefreshCw, Lock, Unlock, Copy, Check,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -31,9 +36,11 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Pagination from '../../components/ui/Pagination';
 import StatCard from '../../components/ui/StatCard';
 import Badge from '../../components/ui/Badge';
+import Tabs from '../../components/ui/Tabs';
 import { DEFAULT_PAGE_SIZE } from '../../utils/constants';
 import { formatCurrency } from '../../utils/format';
 import { cn } from '../../utils/cn';
+import { useAuth } from '../../contexts/AuthContext';
 
 dayjs.extend(relativeTime);
 dayjs.locale('vi');
@@ -370,9 +377,30 @@ function NhanVienPage() {
     const [phieuNhap, setPhieuNhap] = useState([]);
     const [phieuNhapLoading, setPhieuNhapLoading] = useState(false);
 
+    // ── Modal: account management (cấp TK / đổi vai trò / reset MK) ────────
+    const [accountModal, setAccountModal] = useState(null); // { type: 'create'|'update'|'reset', nv }
+    const [accountForm, setAccountForm] = useState({
+        tenDangNhap: '',
+        matKhau: '',
+        vaiTro: 'NV_BanHang',
+        trangThai: 'HoatDong',
+        autoPassword: true,
+    });
+    const [accountError, setAccountError] = useState('');
+    const [accountSubmitting, setAccountSubmitting] = useState(false);
+
+    // ── Modal: hiển thị mật khẩu tạm sau khi cấp / reset ──────────────────
+    const [tempPwdResult, setTempPwdResult] = useState(null); // { tenDangNhap, matKhauTam, tenNV }
+    const [copiedField, setCopiedField] = useState('');
+
     // ── Confirm delete ──────────────────────────────────────────────────────
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [deleting, setDeleting] = useState(false);
+
+    const { user: currentUser } = useAuth();
+
+    // NV không thể thao tác trên chính mình
+    const isSelf = (maNV) => currentUser?.maNV === maNV;
 
     // ── Debounce search ─────────────────────────────────────────────────────
     useEffect(() => {
@@ -418,12 +446,27 @@ function NhanVienPage() {
     }, [keyword, vaiTro, trangThai]);
 
     // ── Modal: create / edit handlers ──────────────────────────────────────
+    const [createTab, setCreateTab] = useState('info');
+    const [createAccountForm, setCreateAccountForm] = useState({
+        enable: false,
+        tenDangNhap: '',
+        matKhau: '',
+        vaiTro: 'NV_BanHang',
+        trangThai: 'HoatDong',
+        autoPassword: true,
+    });
+
     const openCreate = () => {
         setEditing(null);
         setFormError('');
         setFormData({
             tenNV: '', sdt: '', gioiTinh: '', luong: 0,
             ngayVaoLam: new Date().toISOString().split('T')[0], trangThai: 'DangLam',
+        });
+        setCreateTab('info');
+        setCreateAccountForm({
+            enable: false, tenDangNhap: '', matKhau: '',
+            vaiTro: 'NV_BanHang', trangThai: 'HoatDong', autoPassword: true,
         });
         setModalOpen(true);
     };
@@ -479,6 +522,29 @@ function NhanVienPage() {
             if (editing) {
                 await nhanVienService.update(editing.MaNV, formData);
                 toast.success('Cập nhật thành công');
+            } else if (createAccountForm.enable) {
+                // Tạo NV + cấp TK trong 1 lần
+                const tkPayload = {
+                    tenDangNhap: createAccountForm.tenDangNhap.trim(),
+                    vaiTro: createAccountForm.vaiTro,
+                    trangThai: createAccountForm.trangThai,
+                    autoUsername: !createAccountForm.tenDangNhap,
+                    autoPassword: createAccountForm.autoPassword && !createAccountForm.matKhau,
+                };
+                if (createAccountForm.matKhau) tkPayload.matKhau = createAccountForm.matKhau;
+
+                const res = await nhanVienService.createWithAccount(formData, tkPayload);
+                toast.success('Tạo nhân viên và cấp tài khoản thành công');
+
+                // Hiển thị MK tạm nếu có
+                if (res?.data?.matKhauTam) {
+                    setTempPwdResult({
+                        tenDangNhap: res.data.taiKhoan.TenDangNhap,
+                        matKhauTam: res.data.matKhauTam,
+                        tenNV: formData.tenNV,
+                        action: 'create',
+                    });
+                }
             } else {
                 await nhanVienService.create(formData);
                 toast.success('Tạo nhân viên thành công');
@@ -512,6 +578,120 @@ function NhanVienPage() {
         }
     };
 
+    // ── Account management handlers ─────────────────────────────────────────
+    const openCreateAccount = (nv) => {
+        if (isSelf(nv.MaNV)) {
+            toast.error('Không thể cấp tài khoản cho chính mình');
+            return;
+        }
+        // Gợi ý username theo pattern role.tên (admin.huong, banhang.minh, kho.cuong)
+        const firstName = (nv.TenNV || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
+        const slugMap = { Nam: 'a', Nữ: 'a', Nu: 'a', Khác: 'a' };
+        const suggested = `nv.${firstName}`;
+
+        setAccountModal({ type: 'create', nv });
+        setAccountForm({
+            tenDangNhap: suggested,
+            matKhau: '',
+            vaiTro: 'NV_BanHang',
+            trangThai: 'HoatDong',
+            autoPassword: true,
+        });
+        setAccountError('');
+    };
+
+    const openUpdateAccount = (nv) => {
+        if (isSelf(nv.MaNV)) {
+            toast.error('Không thể đổi tài khoản của chính mình');
+            return;
+        }
+        setAccountModal({ type: 'update', nv });
+        setAccountForm({
+            vaiTro: nv.VaiTro || 'NV_BanHang',
+            trangThai: nv.TrangThai === 'Khoa' ? 'Khoa' : 'HoatDong',
+        });
+        setAccountError('');
+    };
+
+    const openResetPassword = (nv) => {
+        if (isSelf(nv.MaNV)) {
+            toast.error('Không thể reset mật khẩu của chính mình');
+            return;
+        }
+        setAccountModal({ type: 'reset', nv });
+        setAccountError('');
+    };
+
+    const closeAccountModal = () => {
+        setAccountModal(null);
+        setAccountError('');
+    };
+
+    const submitAccount = async (e) => {
+        e?.preventDefault?.();
+        if (!accountModal?.nv) return;
+        setAccountError('');
+        setAccountSubmitting(true);
+
+        try {
+            if (accountModal.type === 'create') {
+                const payload = {
+                    tenDangNhap: accountForm.tenDangNhap.trim(),
+                    vaiTro: accountForm.vaiTro,
+                    trangThai: accountForm.trangThai,
+                    autoUsername: !accountForm.tenDangNhap,
+                    autoPassword: accountForm.autoPassword && !accountForm.matKhau,
+                };
+                if (accountForm.matKhau) payload.matKhau = accountForm.matKhau;
+                const res = await nhanVienService.createAccount(accountModal.nv.MaNV, payload);
+                toast.success('Cấp tài khoản thành công');
+                if (res?.data?.matKhauTam) {
+                    setTempPwdResult({
+                        tenDangNhap: res.data.taiKhoan.TenDangNhap,
+                        matKhauTam: res.data.matKhauTam,
+                        tenNV: accountModal.nv.TenNV,
+                        action: 'create',
+                    });
+                }
+            } else if (accountModal.type === 'update') {
+                await nhanVienService.updateAccount(accountModal.nv.MaNV, {
+                    vaiTro: accountForm.vaiTro,
+                    trangThai: accountForm.trangThai,
+                });
+                toast.success('Cập nhật tài khoản thành công');
+            } else if (accountModal.type === 'reset') {
+                const res = await nhanVienService.resetPassword(accountModal.nv.MaNV, accountForm.matKhau || undefined);
+                toast.success('Reset mật khẩu thành công');
+                setTempPwdResult({
+                    tenDangNhap: res?.data?.tenDangNhap,
+                    matKhauTam: res?.data?.matKhauTam,
+                    tenNV: accountModal.nv.TenNV,
+                    action: 'reset',
+                });
+            }
+            closeAccountModal();
+            fetchData(pagination.page);
+            fetchStats();
+        } catch (err) {
+            const msg = err.response?.data?.error?.message || 'Thao tác thất bại';
+            setAccountError(msg);
+            toast.error(msg);
+        } finally {
+            setAccountSubmitting(false);
+        }
+    };
+
+    const copyToClipboard = async (text, field) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedField(field);
+            toast.success('Đã sao chép');
+            setTimeout(() => setCopiedField(''), 1500);
+        } catch {
+            toast.error('Không thể sao chép — copy thủ công nhé');
+        }
+    };
+
     const hasActiveFilters = Boolean(keyword || vaiTro || trangThai);
     const deletingItem = items.find((i) => i.MaNV === confirmDeleteId);
 
@@ -541,8 +721,13 @@ function NhanVienPage() {
                         <div className="text-caption text-neutral-500 flex items-center gap-2 flex-wrap">
                             <span className="font-mono">#{it.MaNV}</span>
                             {it.GioiTinh && <span>• {it.GioiTinh}</span>}
-                            {it.TenDangNhap && (
+                            {it.TenDangNhap ? (
                                 <span className="font-mono">• @{it.TenDangNhap}</span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 text-warning-700 font-medium">
+                                    <UserPlus className="w-3 h-3" aria-hidden="true" />
+                                    Chưa có tài khoản
+                                </span>
                             )}
                         </div>
                     </div>
@@ -613,6 +798,68 @@ function NhanVienPage() {
                     {it.NgayVaoLam ? new Date(it.NgayVaoLam).toLocaleDateString('vi-VN') : '—'}
                 </span>
             ),
+        },
+        {
+            key: 'accountActions',
+            label: 'Tài khoản',
+            align: 'center',
+            width: '170px',
+            render: (it) => {
+                const hasTK = !!it.TenDangNhap;
+                const locked = it.TrangThai === 'Khoa';
+                return (
+                    <div className="flex items-center justify-center gap-1">
+                        {hasTK ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); openUpdateAccount(it); }}
+                                    disabled={isSelf(it.MaNV)}
+                                    className={cn(
+                                        'p-1.5 rounded-btn',
+                                        'text-primary-700 hover:bg-primary-50',
+                                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                                    )}
+                                    title={isSelf(it.MaNV) ? 'Không thể đổi vai trò của chính mình' : 'Đổi vai trò / khóa tài khoản'}
+                                    aria-label={`Quản lý tài khoản của ${it.TenNV}`}
+                                >
+                                    <ShieldCheck className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); openResetPassword(it); }}
+                                    disabled={isSelf(it.MaNV)}
+                                    className={cn(
+                                        'p-1.5 rounded-btn',
+                                        'text-warning-700 hover:bg-warning-50',
+                                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                                    )}
+                                    title={isSelf(it.MaNV) ? 'Không thể reset MK của chính mình' : 'Reset mật khẩu'}
+                                    aria-label={`Reset mật khẩu của ${it.TenNV}`}
+                                >
+                                    <KeyRound className="w-4 h-4" />
+                                </button>
+                                {locked && (
+                                    <Badge variant="danger" size="sm" dot>Khóa</Badge>
+                                )}
+                            </>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                icon={<UserPlus className="w-3.5 h-3.5" />}
+                                onClick={(e) => { e.stopPropagation(); openCreateAccount(it); }}
+                                disabled={isSelf(it.MaNV)}
+                                title={isSelf(it.MaNV) ? 'Không thể cấp TK cho chính mình' : 'Cấp tài khoản đăng nhập'}
+                            >
+                                Cấp TK
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             key: 'actions',
@@ -836,9 +1083,25 @@ function NhanVienPage() {
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
                 title={editing ? 'Sửa nhân viên' : 'Thêm nhân viên'}
+                description={editing ? 'Cập nhật thông tin cơ bản của nhân viên.' : 'Tạo hồ sơ nhân viên mới và cấp tài khoản đăng nhập (tuỳ chọn).'}
+                icon={editing ? <Edit2 /> : <Plus />}
                 size="lg"
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Tabs chỉ hiện khi tạo mới (cho phép cấp TK luôn) */}
+                    {!editing && (
+                        <Tabs
+                            activeKey={createTab}
+                            onChange={setCreateTab}
+                            items={[
+                                { key: 'info', label: 'Thông tin', icon: <UserCog className="w-4 h-4" /> },
+                                { key: 'account', label: 'Tài khoản đăng nhập', icon: <UserPlus className="w-4 h-4" />, badge: createAccountForm.enable ? '✓' : undefined },
+                            ]}
+                        />
+                    )}
+
+                    {(editing || createTab === 'info') && (
+                    <div className="space-y-4">
                     <Input
                         label="Tên nhân viên"
                         required
@@ -891,6 +1154,86 @@ function NhanVienPage() {
                             { value: 'NghiViec', label: 'Nghỉ việc' },
                         ]}
                     />
+                    </div>
+                    )}
+
+                    {!editing && createTab === 'account' && (
+                        <div className="space-y-4">
+                            <div className="flex items-start gap-2 p-3 bg-primary-50 border border-primary-100 rounded-btn">
+                                <input
+                                    type="checkbox"
+                                    id="enableAccount"
+                                    checked={createAccountForm.enable}
+                                    onChange={(e) => setCreateAccountForm({ ...createAccountForm, enable: e.target.checked })}
+                                    className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                />
+                                <label htmlFor="enableAccount" className="text-body text-neutral-700 cursor-pointer flex-1">
+                                    <span className="font-medium">Cấp tài khoản đăng nhập ngay</span>
+                                    <span className="block text-caption text-neutral-500">
+                                        Bật để tạo NV + tài khoản trong 1 thao tác (transaction atomic). Nếu không, có thể cấp sau từ bảng.
+                                    </span>
+                                </label>
+                            </div>
+
+                            {createAccountForm.enable && (
+                                <>
+                                    <Input
+                                        label="Tên đăng nhập"
+                                        value={createAccountForm.tenDangNhap}
+                                        onChange={(e) => setCreateAccountForm({ ...createAccountForm, tenDangNhap: e.target.value })}
+                                        placeholder="VD: banhang.anh"
+                                        hint="Để trống = tự sinh từ tên NV (vd: nguyen.van.an). Theo naming-conventions: banhang.minh, kho.cuong"
+                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Select
+                                            label="Vai trò (phân quyền)"
+                                            value={createAccountForm.vaiTro}
+                                            onChange={(v) => setCreateAccountForm({ ...createAccountForm, vaiTro: v })}
+                                            options={[
+                                                { value: 'Admin', label: '👑 Quản lý (Admin)' },
+                                                { value: 'NV_BanHang', label: '🛒 Nhân viên bán hàng' },
+                                                { value: 'NV_Kho', label: '📦 Thủ kho' },
+                                            ]}
+                                        />
+                                        <Select
+                                            label="Trạng thái TK"
+                                            value={createAccountForm.trangThai}
+                                            onChange={(v) => setCreateAccountForm({ ...createAccountForm, trangThai: v })}
+                                            options={[
+                                                { value: 'HoatDong', label: '✓ Hoạt động' },
+                                                { value: 'Khoa', label: '✕ Khóa' },
+                                            ]}
+                                        />
+                                    </div>
+                                    <div className="flex items-start gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-btn">
+                                        <input
+                                            type="checkbox"
+                                            id="autoPwd"
+                                            checked={createAccountForm.autoPassword}
+                                            onChange={(e) => setCreateAccountForm({ ...createAccountForm, autoPassword: e.target.checked, matKhau: '' })}
+                                            className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                        />
+                                        <label htmlFor="autoPwd" className="text-body text-neutral-700 cursor-pointer flex-1">
+                                            <span className="font-medium">Tự sinh mật khẩu ngẫu nhiên</span>
+                                            <span className="block text-caption text-neutral-500">
+                                                Hệ thống tạo mật khẩu 12 ký tự (đảm bảo chính sách mạnh) và hiển thị sau khi lưu.
+                                            </span>
+                                        </label>
+                                    </div>
+                                    {!createAccountForm.autoPassword && (
+                                        <Input
+                                            label="Mật khẩu"
+                                            type="text"
+                                            required
+                                            value={createAccountForm.matKhau}
+                                            onChange={(e) => setCreateAccountForm({ ...createAccountForm, matKhau: e.target.value })}
+                                            placeholder="Tối thiểu 8 ký tự (hoa + thường + số + đặc biệt)"
+                                        />
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {formError && (
                         <div className="p-3 bg-danger-50 border border-danger-100 rounded-btn text-caption text-danger-700">
@@ -907,7 +1250,7 @@ function NhanVienPage() {
                             Hủy
                         </Button>
                         <Button variant="primary" type="submit" loading={submitting}>
-                            {editing ? 'Cập nhật' : 'Tạo mới'}
+                            {editing ? 'Cập nhật' : (createAccountForm.enable ? 'Tạo NV + tài khoản' : 'Tạo mới')}
                         </Button>
                     </div>
                 </form>
@@ -938,6 +1281,243 @@ function NhanVienPage() {
                 }
                 confirmLabel="Xóa"
             />
+
+            {/* ── Modal: Account management (cấp / đổi vai trò / reset MK) ─── */}
+            <Modal
+                open={!!accountModal}
+                onClose={closeAccountModal}
+                title={
+                    accountModal?.type === 'create' ? `Cấp tài khoản cho ${accountModal?.nv?.TenNV}`
+                    : accountModal?.type === 'update' ? `Quản lý tài khoản của ${accountModal?.nv?.TenNV}`
+                    : accountModal?.type === 'reset' ? `Reset mật khẩu cho ${accountModal?.nv?.TenNV}`
+                    : ''
+                }
+                description={
+                    accountModal?.type === 'create' ? 'Tạo tên đăng nhập + mật khẩu + phân quyền cho nhân viên.'
+                    : accountModal?.type === 'update' ? 'Đổi vai trò hoặc khóa/mở khóa tài khoản.'
+                    : 'Sinh mật khẩu tạm mới — NV cần đổi lại ở lần đăng nhập kế tiếp.'
+                }
+                icon={
+                    accountModal?.type === 'create' ? <UserPlus />
+                    : accountModal?.type === 'update' ? <ShieldCheck />
+                    : <KeyRound />
+                }
+                tone={accountModal?.type === 'reset' ? 'warning' : 'primary'}
+                size="lg"
+            >
+                <form onSubmit={submitAccount} className="space-y-4">
+                    {accountModal?.type === 'create' && (
+                        <>
+                            <Input
+                                label="Tên đăng nhập"
+                                required
+                                value={accountForm.tenDangNhap}
+                                onChange={(e) => setAccountForm({ ...accountForm, tenDangNhap: e.target.value })}
+                                placeholder="VD: banhang.anh"
+                                hint="Chỉ chữ cái, số, dấu ., _, - (3-50 ký tự). VD theo pattern: banhang.minh, kho.cuong"
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Select
+                                    label="Vai trò (phân quyền)"
+                                    required
+                                    value={accountForm.vaiTro}
+                                    onChange={(v) => setAccountForm({ ...accountForm, vaiTro: v })}
+                                    options={[
+                                        { value: 'Admin', label: '👑 Quản lý (Admin)' },
+                                        { value: 'NV_BanHang', label: '🛒 Nhân viên bán hàng' },
+                                        { value: 'NV_Kho', label: '📦 Thủ kho' },
+                                    ]}
+                                />
+                                <Select
+                                    label="Trạng thái tài khoản"
+                                    value={accountForm.trangThai}
+                                    onChange={(v) => setAccountForm({ ...accountForm, trangThai: v })}
+                                    options={[
+                                        { value: 'HoatDong', label: '✓ Hoạt động' },
+                                        { value: 'Khoa', label: '✕ Khóa' },
+                                    ]}
+                                />
+                            </div>
+                            <div className="flex items-start gap-2 p-3 bg-primary-50 border border-primary-100 rounded-btn">
+                                <input
+                                    type="checkbox"
+                                    id="autoPassword"
+                                    checked={accountForm.autoPassword}
+                                    onChange={(e) => setAccountForm({ ...accountForm, autoPassword: e.target.checked, matKhau: '' })}
+                                    className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                />
+                                <label htmlFor="autoPassword" className="text-body text-neutral-700 cursor-pointer flex-1">
+                                    <span className="font-medium">Tự sinh mật khẩu ngẫu nhiên</span>
+                                    <span className="block text-caption text-neutral-500">
+                                        Hệ thống sẽ tạo mật khẩu 12 ký tự (hoa/thường/số/đặc biệt) và hiển thị sau khi lưu.
+                                    </span>
+                                </label>
+                            </div>
+                            {!accountForm.autoPassword && (
+                                <Input
+                                    label="Mật khẩu"
+                                    type="text"
+                                    required
+                                    value={accountForm.matKhau}
+                                    onChange={(e) => setAccountForm({ ...accountForm, matKhau: e.target.value })}
+                                    placeholder="Tối thiểu 8 ký tự (hoa + thường + số + đặc biệt)"
+                                    hint="Mật khẩu sẽ được hash bằng bcrypt trước khi lưu."
+                                />
+                            )}
+                        </>
+                    )}
+
+                    {accountModal?.type === 'update' && (
+                        <>
+                            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-btn">
+                                <p className="text-caption text-neutral-500">Tài khoản</p>
+                                <p className="font-mono text-body font-semibold text-neutral-900">
+                                    @{accountModal?.nv?.TenDangNhap}
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Select
+                                    label="Vai trò (phân quyền)"
+                                    value={accountForm.vaiTro}
+                                    onChange={(v) => setAccountForm({ ...accountForm, vaiTro: v })}
+                                    options={[
+                                        { value: 'Admin', label: '👑 Quản lý (Admin)' },
+                                        { value: 'NV_BanHang', label: '🛒 Nhân viên bán hàng' },
+                                        { value: 'NV_Kho', label: '📦 Thủ kho' },
+                                    ]}
+                                />
+                                <Select
+                                    label="Trạng thái tài khoản"
+                                    value={accountForm.trangThai}
+                                    onChange={(v) => setAccountForm({ ...accountForm, trangThai: v })}
+                                    options={[
+                                        { value: 'HoatDong', label: '✓ Hoạt động' },
+                                        { value: 'Khoa', label: '✕ Khóa' },
+                                    ]}
+                                />
+                            </div>
+                            {accountForm.trangThai === 'Khoa' && (
+                                <div className="p-3 bg-warning-50 border border-warning-100 rounded-btn text-caption text-warning-800">
+                                    ⚠️ Khi khóa, mọi refresh token của nhân viên này sẽ bị thu hồi ngay lập tức.
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {accountModal?.type === 'reset' && (
+                        <>
+                            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-btn">
+                                <p className="text-caption text-neutral-500">Tài khoản</p>
+                                <p className="font-mono text-body font-semibold text-neutral-900">
+                                    @{accountModal?.nv?.TenDangNhap}
+                                </p>
+                                <p className="text-caption text-neutral-500 mt-1">
+                                    Vai trò hiện tại: <span className="font-medium">{ROLE_LABEL[accountModal?.nv?.VaiTro] || accountModal?.nv?.VaiTro}</span>
+                                </p>
+                            </div>
+                            <div className="flex items-start gap-2 p-3 bg-primary-50 border border-primary-100 rounded-btn">
+                                <input
+                                    type="checkbox"
+                                    id="autoPwdReset"
+                                    defaultChecked
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setAccountForm({ ...accountForm, matKhau: '' });
+                                        }
+                                    }}
+                                    className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                />
+                                <label htmlFor="autoPwdReset" className="text-body text-neutral-700 cursor-pointer flex-1">
+                                    <span className="font-medium">Tự sinh mật khẩu mới ngẫu nhiên</span>
+                                    <span className="block text-caption text-neutral-500">
+                                        Hệ thống tạo mật khẩu tạm 12 ký tự; refresh token cũ sẽ bị thu hồi.
+                                    </span>
+                                </label>
+                            </div>
+                        </>
+                    )}
+
+                    {accountError && (
+                        <div className="p-3 bg-danger-50 border border-danger-100 rounded-btn text-caption text-danger-700">
+                            {accountError}
+                        </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2 justify-end">
+                        <Button variant="secondary" onClick={closeAccountModal} disabled={accountSubmitting}>
+                            Hủy
+                        </Button>
+                        <Button variant="primary" type="submit" loading={accountSubmitting}>
+                            {accountModal?.type === 'create' && 'Cấp tài khoản'}
+                            {accountModal?.type === 'update' && 'Lưu thay đổi'}
+                            {accountModal?.type === 'reset' && 'Reset mật khẩu'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ── Modal: hiển thị mật khẩu tạm (sau khi cấp / reset TK) ─────── */}
+            <Modal
+                open={!!tempPwdResult}
+                onClose={() => setTempPwdResult(null)}
+                title={tempPwdResult?.action === 'reset' ? 'Mật khẩu đã được reset' : 'Tài khoản đã được tạo'}
+                description="Vui lòng sao chép và chuyển cho nhân viên. Mật khẩu sẽ không hiển thị lại."
+                icon={<KeyRound />}
+                tone="success"
+                size="md"
+                footer={
+                    <Button variant="primary" onClick={() => setTempPwdResult(null)}>
+                        Đã hiểu, đóng
+                    </Button>
+                }
+            >
+                {tempPwdResult && (
+                    <div className="space-y-3">
+                        <div className="p-3 bg-neutral-50 rounded-btn">
+                            <p className="text-caption text-neutral-500 mb-1">Nhân viên</p>
+                            <p className="font-medium text-neutral-900">{tempPwdResult.tenNV}</p>
+                        </div>
+
+                        <div className="p-3 bg-primary-50 border border-primary-100 rounded-btn">
+                            <p className="text-caption text-neutral-500 mb-1">Tên đăng nhập</p>
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono text-body font-bold text-primary-900">
+                                    {tempPwdResult.tenDangNhap}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(tempPwdResult.tenDangNhap, 'username')}
+                                    className="p-1.5 rounded-btn text-neutral-500 hover:bg-white hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                                    title="Sao chép"
+                                >
+                                    {copiedField === 'username' ? <Check className="w-4 h-4 text-success-600" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-warning-50 border border-warning-200 rounded-btn">
+                            <p className="text-caption text-warning-800 mb-1">Mật khẩu tạm (chỉ hiển thị 1 lần)</p>
+                            <div className="flex items-center justify-between gap-2">
+                                <code className="font-mono text-h3 font-bold text-warning-900 select-all">
+                                    {tempPwdResult.matKhauTam}
+                                </code>
+                                <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(tempPwdResult.matKhauTam, 'password')}
+                                    className="p-1.5 rounded-btn text-warning-700 hover:bg-white hover:text-warning-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                                    title="Sao chép"
+                                >
+                                    {copiedField === 'password' ? <Check className="w-4 h-4 text-success-600" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="text-caption text-neutral-500 italic">
+                            💡 Nhắc nhân viên đổi mật khẩu ngay tại <span className="font-mono">/change-password</span> sau lần đăng nhập đầu tiên.
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

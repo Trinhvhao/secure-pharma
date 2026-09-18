@@ -6,9 +6,12 @@
  *  GET    /api/nhan-vien/stats       - Thống kê tổng quan (4 stat cards)
  *  GET    /api/nhan-vien/:id         - Chi tiết + stats aggregate
  *  GET    /api/nhan-vien/:id/hoa-don - Lịch sử hóa đơn đã thanh toán
- *  POST   /api/nhan-vien             - Tạo mới (Admin only)
+ *  POST   /api/nhan-vien             - Tạo mới (Admin only) — hỗ trợ body.taiKhoan để cấp luôn TK
  *  PUT    /api/nhan-vien/:id         - Cập nhật
  *  DELETE /api/nhan-vien/:id         - Xóa
+ *  POST   /api/nhan-vien/:id/tai-khoan         - Cấp tài khoản cho NV chưa có
+ *  PATCH  /api/nhan-vien/:id/tai-khoan         - Đổi vai trò / trạng thái tài khoản
+ *  POST   /api/nhan-vien/:id/reset-mat-khau    - Admin reset mật khẩu NV
  */
 import api from '../api/axiosClient';
 
@@ -57,6 +60,36 @@ const nhanVienService = {
     /** Tạo nhân viên mới */
     create: async (data) => {
         const response = await api.post('/nhan-vien', data);
+        return response.data;
+    },
+
+    /**
+     * Tạo NV + cấp tài khoản (1 API call, atomic).
+     * @param {Object} nvData - { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai }
+     * @param {Object} tkData - { tenDangNhap, matKhau, vaiTro, trangThai?, autoUsername?, autoPassword? }
+     */
+    createWithAccount: async (nvData, tkData) => {
+        const response = await api.post('/nhan-vien', { ...nvData, taiKhoan: tkData });
+        return response.data;
+    },
+
+    /** Cấp tài khoản cho NV đã tồn tại nhưng chưa có TK */
+    createAccount: async (id, tkData) => {
+        const response = await api.post(`/nhan-vien/${id}/tai-khoan`, tkData);
+        return response.data;
+    },
+
+    /** Đổi vai trò / khóa-mở khóa tài khoản NV */
+    updateAccount: async (id, { vaiTro, trangThai }) => {
+        const response = await api.patch(`/nhan-vien/${id}/tai-khoan`, { vaiTro, trangThai });
+        return response.data;
+    },
+
+    /** Admin reset mật khẩu NV. Không truyền matKhauMoi → BE tự sinh */
+    resetPassword: async (id, matKhauMoi) => {
+        const response = await api.post(`/nhan-vien/${id}/reset-mat-khau`,
+            matKhauMoi ? { matKhauMoi } : {}
+        );
         return response.data;
     },
 

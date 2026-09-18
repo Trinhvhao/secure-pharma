@@ -204,4 +204,108 @@ router.put('/:id', writeLimiter, audit('UPDATE_NV'), ctrl.update);
  */
 router.delete('/:id', writeLimiter, audit('DELETE_NV'), ctrl.remove);
 
+/**
+ * @openapi
+ * /api/nhan-vien/{id}/tai-khoan:
+ *   post:
+ *     tags: [Nhân viên]
+ *     summary: Cấp tài khoản cho nhân viên chưa có tài khoản (Admin)
+ *     description: |
+ *       Tạo bản ghi TaiKhoan gắn với nhân viên hiện tại.
+ *       Username phải unique, password ≥ 8 ký tự (hoa/thường/số/đặc biệt).
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tenDangNhap, matKhau, vaiTro]
+ *             properties:
+ *               tenDangNhap: { type: string, example: 'banhang.anh' }
+ *               matKhau: { type: string, format: password }
+ *               vaiTro:
+ *                 type: string
+ *                 enum: [Admin, NV_BanHang, NV_Kho]
+ *               trangThai:
+ *                 type: string
+ *                 enum: [HoatDong, Khoa]
+ *                 default: HoatDong
+ *     responses:
+ *       201: { description: Cấp tài khoản thành công }
+ *       400: { description: Dữ liệu không hợp lệ }
+ *       404: { description: Không tìm thấy nhân viên }
+ *       409: { description: NV đã có tài khoản / username trùng }
+ */
+router.post('/:id/tai-khoan', writeLimiter, audit('CREATE_ACCOUNT_NV'), ctrl.createAccount);
+
+/**
+ * @openapi
+ * /api/nhan-vien/{id}/tai-khoan:
+ *   patch:
+ *     tags: [Nhân viên]
+ *     summary: Đổi vai trò / khóa-mở khóa tài khoản NV (Admin)
+ *     description: |
+ *       Cập nhật VaiTro và/hoặc TrangThai (HoatDong/Khoa) của tài khoản NV.
+ *       Admin không thể tự khóa / tự đổi vai trò chính mình.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               vaiTro:
+ *                 type: string
+ *                 enum: [Admin, NV_BanHang, NV_Kho]
+ *               trangThai:
+ *                 type: string
+ *                 enum: [HoatDong, Khoa]
+ *     responses:
+ *       200: { description: OK }
+ *       404: { description: Không tìm thấy }
+ *       409: { description: NV chưa có tài khoản }
+ */
+router.patch('/:id/tai-khoan', writeLimiter, audit('UPDATE_ACCOUNT_NV'), ctrl.updateAccount);
+
+/**
+ * @openapi
+ * /api/nhan-vien/{id}/reset-mat-khau:
+ *   post:
+ *     tags: [Nhân viên]
+ *     summary: Admin reset mật khẩu cho NV
+ *     description: |
+ *       Nếu không truyền `matKhauMoi` thì hệ thống tự sinh mật khẩu tạm ngẫu nhiên
+ *       (12 ký tự, đảm bảo chữ hoa/thường/số/đặc biệt). Trả về `matKhauTam` để Admin
+ *       chuyển cho NV. NV nên đổi lại qua `/api/auth/change-password` ngay sau đó.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               matKhauMoi: { type: string, format: password, nullable: true }
+ *     responses:
+ *       200: { description: OK, trả về matKhauTam }
+ *       404: { description: Không tìm thấy NV / chưa có tài khoản }
+ */
+router.post('/:id/reset-mat-khau', writeLimiter, audit('RESET_PASSWORD_NV'), ctrl.resetPassword);
+
 module.exports = router;

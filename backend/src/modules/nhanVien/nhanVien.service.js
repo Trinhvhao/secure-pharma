@@ -334,6 +334,247 @@ async function remove(maNV) {
     return r.rowsAffected[0] > 0;
 }
 
+/**
+ * Tạo NV + tài khoản trong 1 transaction (atomic).
+ * @param {Object} nvData - { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai }
+ * @param {Object} tkData - { tenDangNhap, matKhau, vaiTro, trangThai?, autoUsername?, autoPassword? }
+ *   - autoUsername=true: nếu không truyền tenDangNhap thì tự sinh từ tên NV
+ *   - autoPassword=true: nếu không truyền matKhau thì tự sinh 12 ký tự
+ * Trả về { nhanVien, taiKhoan, matKhauTam? }
+ */
+async function createWithAccount(nvData, tkData) {
+    // ── Validate input ──────────────────────────────────────────────
+    if (!nvData.tenNV) {
+        const err = new Error('Vui lòng nhập tên nhân viên'); err.statusCode = 400; throw err;
+    }
+    if (!tkData) tkData = {};
+
+    // Tự sinh username / password nếu được yêu cầu
+    let tenDangNhap = (tkData.tenDangNhap || '').trim();
+    if (!tenDangNhap && tkData.autoUsername) {
+        tenDangNhap = slugifyTenNV(nvData.tenNV);
+    }
+    let matKhau = tkData.matKhau;
+    if (!matKhau && tkData.autoPassword) {
+        matKhau = generateTempPassword();
+    }
+    if (!tenDangNhap) {
+        const err = new Error('Vui lòng nhập tên đăng nhập'); err.statusCode = 400; throw err;
+    }
+    const pwdErr = validatePassword(matKhau);
+    if (pwdErr) {
+        const err = new Error(pwdErr); err.statusCode = 400; throw err;
+    }
+    const vtErr = validateVaiTro(tkData.vaiTro);
+    if (vtErr) {
+        const err = new Error(vtErr); err.statusCode = 400; throw err;
+    }
+    const trangThaiTK = tkData.trangThai || 'HoatDong';
+    if (!['HoatDong', 'Khoa'].includes(trangThaiTK)) {
+        const err = new Error('Trạng thái tài khoản không hợp lệ'); err.statusCode = 400; throw err;
+    }
+
+    // Validate username format (chữ cái, số, dấu ., -, _ ; 3-50 ký tự)
+    if (!/^[a-zA-Z0-9._-]{3,50}$/.test(tenDangNhap)) {
+        const err = new Error('Tên đăng nhập chỉ chấp nhận chữ cái, số, dấu ., _, - (3-50 ký tự)');
+        err.statusCode = 400; throw err;
+    }
+
+    // ── Kiểm tra trùng username ────────────────────────────────────
+    const dupR = await db.query(`SELECT TenDangNhap FROM TaiKhoan WHERE TenDangNhap = @username`, { username: tenDangNhap });
+    if (dupR.recordset.length > 0) {
+        const err = new Error(`Tên đăng nhập "${tenDangNhap}" đã tồn tại`); err.statusCode = 409; throw err;
+    }
+
+    // ── Transaction: insert NV → insert TaiKhoan ────────────────────
+    const matKhauHash = await bcrypt.hash(matKhau, SALT_ROUNDS);
+
+    const transaction = new db.sql.Transaction(db.getPool());
+    await transaction.begin();
+    try {
+        const reqNV = new db.sql.Request(transaction);
+        reqNV.input('tenNV', db.sql.NVarChar, nvData.tenNV);
+        reqNV.input('sdt', db.sql.VarChar, nvData.sdt || null);
+        reqNV.input('gioiTinh', db.sql.NVarChar, nvData.gioiTinh || null);
+        reqNV.input('luong', db.sql.Decimal(18, 2), nvData.luong || 0);
+        reqNV.input('ngayVaoLam', db.sql.Date, nvData.ngayVaoLam ? new Date(nvData.ngayVaoLam) : new Date());
+        reqNV.input('trangThai', db.sql.NVarChar, nvData.trangThai || 'DangLam');
+        const insertNVR = await reqNV.query(`
+            INSERT INTO NhanVien (TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai)
+            OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong, INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.CreatedAt
+            VALUES (@tenNV, @sdt, @gioiTinh, @luong, @ngayVaoLam, @trangThai)
+        `);
+        const nhanVien = insertNVR.recordset[0];
+        const maNV = nhanVien.MaNV;
+
+        const reqTK = new db.sql.Request(transaction);
+        reqTK.input('tenDangNhap', db.sql.VarChar, tenDangNhap);
+        reqTK.input('matKhauHash', db.sql.VarChar, matKhauHash);
+        reqTK.input('vaiTro', db.sql.NVarChar, tkData.vaiTro);
+        reqTK.input('trangThai', db.sql.NVarChar, trangThaiTK);
+        reqTK.input('maNV', db.sql.Int, maNV);
+        const insertTKR = await reqTK.query(`
+            INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV)
+            OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.CreatedAt
+            VALUES (@tenDangNhap, @matKhauHash, @vaiTro, @trangThai, @maNV)
+        `);
+        const taiKhoan = insertTKR.recordset[0];
+
+        await transaction.commit();
+
+        const result = { nhanVien, taiKhoan };
+        // Nếu là mật khẩu tự sinh → trả về plaintext để Admin chuyển cho NV
+        if (tkData.autoPassword && !tkData.matKhau) {
+            result.matKhauTam = matKhau;
+        }
+        return result;
+    } catch (err) {
+        try { await transaction.rollback(); } catch (_) { /* ignore */ }
+        throw err;
+    }
+}
+
+/**
+ * Cấp tài khoản cho NV đã tồn tại nhưng chưa có TK.
+ */
+async function createAccountForExisting(maNV, tkData) {
+    // Kiểm tra NV tồn tại
+    const nvR = await db.query(`SELECT MaNV, TenNV FROM NhanVien WHERE MaNV = @maNV`, { maNV });
+    if (nvR.recordset.length === 0) {
+        const err = new Error(`Không tìm thấy nhân viên #${maNV}`); err.statusCode = 404; throw err;
+    }
+
+    // Kiểm tra NV chưa có TK
+    const tkExist = await db.query(`SELECT TenDangNhap, VaiTro FROM TaiKhoan WHERE MaNV = @maNV`, { maNV });
+    if (tkExist.recordset.length > 0) {
+        const err = new Error(`Nhân viên đã có tài khoản "${tkExist.recordset[0].TenDangNhap}" — không thể cấp mới. Đổi vai trò qua PATCH /api/nhan-vien/${maNV}/tai-khoan`);
+        err.statusCode = 409; throw err;
+    }
+
+    // Tự sinh username nếu cần
+    let tenDangNhap = (tkData.tenDangNhap || '').trim();
+    if (!tenDangNhap && tkData.autoUsername) {
+        tenDangNhap = slugifyTenNV(nvR.recordset[0].TenNV);
+    }
+    let matKhau = tkData.matKhau;
+    if (!matKhau && tkData.autoPassword) {
+        matKhau = generateTempPassword();
+    }
+
+    if (!tenDangNhap) {
+        const err = new Error('Vui lòng nhập tên đăng nhập'); err.statusCode = 400; throw err;
+    }
+    const pwdErr = validatePassword(matKhau);
+    if (pwdErr) { const err = new Error(pwdErr); err.statusCode = 400; throw err; }
+    const vtErr = validateVaiTro(tkData.vaiTro);
+    if (vtErr) { const err = new Error(vtErr); err.statusCode = 400; throw err; }
+    const trangThaiTK = tkData.trangThai || 'HoatDong';
+    if (!['HoatDong', 'Khoa'].includes(trangThaiTK)) {
+        const err = new Error('Trạng thái tài khoản không hợp lệ'); err.statusCode = 400; throw err;
+    }
+    if (!/^[a-zA-Z0-9._-]{3,50}$/.test(tenDangNhap)) {
+        const err = new Error('Tên đăng nhập chỉ chấp nhận chữ cái, số, dấu ., _, - (3-50 ký tự)');
+        err.statusCode = 400; throw err;
+    }
+
+    const dupR = await db.query(`SELECT TenDangNhap FROM TaiKhoan WHERE TenDangNhap = @username`, { username: tenDangNhap });
+    if (dupR.recordset.length > 0) {
+        const err = new Error(`Tên đăng nhập "${tenDangNhap}" đã tồn tại`); err.statusCode = 409; throw err;
+    }
+
+    const matKhauHash = await bcrypt.hash(matKhau, SALT_ROUNDS);
+    const insertR = await db.query(`
+        INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV)
+        OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.CreatedAt
+        VALUES (@tenDangNhap, @matKhauHash, @vaiTro, @trangThai, @maNV)
+    `, {
+        tenDangNhap,
+        matKhauHash,
+        vaiTro: tkData.vaiTro,
+        trangThai: trangThaiTK,
+        maNV,
+    });
+
+    const result = { taiKhoan: insertR.recordset[0] };
+    if (tkData.autoPassword && !tkData.matKhau) {
+        result.matKhauTam = matKhau;
+    }
+    return result;
+}
+
+/**
+ * Đổi vai trò / trạng thái tài khoản.
+ */
+async function updateAccount(maNV, { vaiTro, trangThai }) {
+    if (!vaiTro && !trangThai) {
+        const err = new Error('Cần truyền ít nhất vaiTro hoặc trangThai'); err.statusCode = 400; throw err;
+    }
+    if (vaiTro) {
+        const vtErr = validateVaiTro(vaiTro);
+        if (vtErr) { const err = new Error(vtErr); err.statusCode = 400; throw err; }
+    }
+    if (trangThai && !['HoatDong', 'Khoa'].includes(trangThai)) {
+        const err = new Error('Trạng thái chỉ chấp nhận: HoatDong, Khoa'); err.statusCode = 400; throw err;
+    }
+
+    // Kiểm tra TK tồn tại
+    const existR = await db.query(`SELECT TenDangNhap FROM TaiKhoan WHERE MaNV = @maNV`, { maNV });
+    if (existR.recordset.length === 0) {
+        const err = new Error(`Nhân viên #${maNV} chưa có tài khoản`); err.statusCode = 404; throw err;
+    }
+
+    // Build dynamic update
+    const sets = [];
+    const params = { maNV };
+    if (vaiTro) { sets.push('VaiTro = @vaiTro'); params.vaiTro = vaiTro; }
+    if (trangThai) { sets.push('TrangThai = @trangThai'); params.trangThai = trangThai; }
+    sets.push('UpdatedAt = GETDATE()');
+    // Khi khóa TK → revoke refresh tokens (tăng TokenVersion) để NV không dùng token cũ
+    if (trangThai === 'Khoa') { sets.push('TokenVersion = ISNULL(TokenVersion, 1) + 1'); }
+
+    const updateR = await db.query(`
+        UPDATE TaiKhoan SET ${sets.join(', ')}
+        OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.UpdatedAt
+        WHERE MaNV = @maNV
+    `, params);
+
+    return updateR.recordset[0];
+}
+
+/**
+ * Admin reset mật khẩu cho NV.
+ */
+async function resetPassword(maNV, matKhauMoi) {
+    const existR = await db.query(`SELECT TenDangNhap FROM TaiKhoan WHERE MaNV = @maNV`, { maNV });
+    if (existR.recordset.length === 0) {
+        const err = new Error(`Nhân viên #${maNV} chưa có tài khoản`); err.statusCode = 404; throw err;
+    }
+
+    let matKhau = matKhauMoi;
+    const autoGen = !matKhau;
+    if (autoGen) {
+        matKhau = generateTempPassword();
+    } else {
+        const pwdErr = validatePassword(matKhau);
+        if (pwdErr) { const err = new Error(pwdErr); err.statusCode = 400; throw err; }
+    }
+
+    const matKhauHash = await bcrypt.hash(matKhau, SALT_ROUNDS);
+    await db.query(`
+        UPDATE TaiKhoan
+        SET MatKhauHash = @matKhauHash,
+            TokenVersion = ISNULL(TokenVersion, 1) + 1,
+            UpdatedAt = GETDATE()
+        WHERE MaNV = @maNV
+    `, { matKhauHash, maNV });
+
+    return {
+        tenDangNhap: existR.recordset[0].TenDangNhap,
+        matKhauTam: matKhau,
+        autoGenerated: autoGen,
+    };
+}
+
 module.exports = {
     getAll,
     getById,
@@ -343,4 +584,10 @@ module.exports = {
     create,
     update,
     remove,
+    createWithAccount,
+    createAccountForExisting,
+    updateAccount,
+    resetPassword,
+    // Helpers exposed for FE/test
+    _helpers: { slugifyTenNV, generateTempPassword, validatePassword },
 };

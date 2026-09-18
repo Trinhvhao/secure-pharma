@@ -988,7 +988,7 @@ CRUD khách hàng + tích hợp mã hóa SDT (SHOULD).
 - ✅ **Mã hóa SDT bằng AES-256-CBC** trước khi lưu (SHOULD)
 - ✅ Khi đọc → giải mã plaintext
 - ✅ Validate SDT 10-11 số (regex `^[0-9]{10,11}$`)
-- ✅ Cột `KhachHang.SDT` đã được ALTER thành `VARCHAR(64)` (patch `06_patch_aes_sdt.sql`)
+- ✅ Cột `KhachHang.SDT` đã được ALTER thành `VARCHAR(64)` (file `99_schema_patches.sql`)
 
 ---
 
@@ -1019,6 +1019,48 @@ CRUD nhân viên (Admin only).
 - [x] CRUD nhân viên với UI + API + audit
 - [x] Không xóa được NV có tài khoản đăng nhập
 - [x] Không xóa được chính mình
+
+#### Bổ sung ngày 18/09/2026 — Tạo tài khoản + Phân quyền NV từ UI
+
+> **Phần bổ sung** cho yêu cầu đề bài 2.1.1.7 *"Tạo nhân viên mới ... cho người dùng nhập thông tin"* và cho phép Admin **phân quyền nhân viên từ giao diện** thay vì phải sửa SQL thủ công.
+
+| API mới | Method | Mô tả |
+|---|---|---|
+| `POST /api/nhan-vien/:id/tai-khoan` | POST | Cấp tài khoản (username + password + vaiTro + trangThai) cho NV chưa có TK |
+| `PATCH /api/nhan-vien/:id/tai-khoan` | PATCH | Đổi vai trò / khóa-mở khóa tài khoản |
+| `POST /api/nhan-vien/:id/reset-mat-khau` | POST | Admin reset mật khẩu NV (auto-generate 12 ký tự nếu không truyền) |
+
+- `POST /api/nhan-vien` hỗ trợ thêm `body.taiKhoan` để **tạo NV + cấp TK trong 1 transaction atomic**.
+- Pattern gợi ý username theo `naming-conventions.mdc`: `admin.huong`, `banhang.minh`, `kho.cuong`.
+- Mật khẩu policy: ≥ 8 ký tự, có chữ hoa + thường + số + ký tự đặc biệt (giống `change-password`).
+- Auto-generate password: 12 ký tự, đảm bảo đủ 4 loại ký tự, hệ thống tự sinh và trả về `matKhauTam` (chỉ hiển thị 1 lần).
+- **Security**:
+  - Khi khóa TK → tự động `TokenVersion += 1` → thu hồi refresh token của NV.
+  - Khi reset MK → tự động `TokenVersion += 1` → NV phải đăng nhập lại.
+  - Không cho Admin tự cấp / đổi vai trò / khóa / reset MK chính mình (400 Bad Request).
+
+**Frontend `NhanVienPage.jsx`** — thêm cột "Tài khoản" trong bảng với 3 nút hành động:
+- 🔘 **Cấp TK** (NV chưa có TK) → modal nhập username + password + vai trò
+- 🛡️ **Đổi vai trò / Khóa** (NV đã có TK) → modal đổi `VaiTro` / `TrangThai`
+- 🔑 **Reset MK** (NV đã có TK) → modal tự sinh hoặc nhập tay
+
+Modal "Thêm nhân viên" bổ sung tab **"Tài khoản đăng nhập"** (toggle on/off): bật = tạo NV + TK 1 lần.
+
+Modal hiển thị **mật khẩu tạm** sau khi cấp/reset, có nút copy từng trường (username/password).
+
+#### Done Criteria (bổ sung)
+- [x] Tạo NV + cấp TK trong 1 API (atomic transaction)
+- [x] Cấp TK cho NV chưa có (POST `/tai-khoan`)
+- [x] Đổi vai trò / khóa tài khoản (PATCH `/tai-khoan`)
+- [x] Reset MK có/không auto-generate (POST `/reset-mat-khau`)
+- [x] Validate username unique, password policy mạnh
+- [x] Username format: `[a-zA-Z0-9._-]{3,50}` theo pattern `role.tên`
+- [x] Mật khẩu tạm chỉ hiển thị 1 lần, có nút copy
+- [x] Khóa TK → thu hồi refresh token (TokenVersion)
+- [x] Reset MK → NV phải đăng nhập lại
+- [x] Admin không thể tự cấp / sửa / khóa / reset TK chính mình
+- [x] RBAC: NV_BanHang/NV_Kho gọi các endpoint này → 403
+- [x] Audit log: `CREATE_ACCOUNT_NV`, `UPDATE_ACCOUNT_NV`, `RESET_PASSWORD_NV`
 
 ---
 
