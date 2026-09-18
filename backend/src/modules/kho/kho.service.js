@@ -263,9 +263,11 @@ async function getSapHetHan(days = 30) {
  * Chi lay lô thuộc phiếu DaNhap, còn tồn > 0, chưa hết hạn.
  *
  * @param {number} maThuoc
- * @returns {Promise<Array>} [{ MaLo, SoLuongTonKho, HanSD, SoNgayConLai, GiaNhap, NgayNhap }]
+ * @param {string} [role] - Role của user đang gọi. NV_BanHang sẽ bị strip field nhạy cảm
+ *                          (GiaNhap, MaPN, MaNCC, TenNCC) vì không thuộc nghiệp vụ bán hàng.
+ * @returns {Promise<Array>} [{ MaLo, SoLuongTonKho, HanSD, SoNgayConLai, GiaNhap?, NgayNhap? }]
  */
-async function getLoByThuoc(maThuoc) {
+async function getLoByThuoc(maThuoc, role = 'Admin') {
     const r = await db.query(
         `SELECT
             l.MaLo,
@@ -293,6 +295,21 @@ async function getLoByThuoc(maThuoc) {
          ORDER BY l.HanSD ASC`,  // FIFO: lô cũ nhất (hạn sớm nhất) lên đầu
         { maThuoc }
     );
+
+    // NV_BanHang không cần biết giá nhập / NCC / mã phiếu nhập.
+    // Need-to-know: chỉ giữ field phục vụ bán hàng (MaLo, SoLuongTonKho, HanSD, SoNgayConLai).
+    if (role === 'NV_BanHang') {
+        return r.recordset.map((lot) => ({
+            MaLo: lot.MaLo,
+            MaThuoc: lot.MaThuoc,
+            TenThuoc: lot.TenThuoc,
+            SoLuongNhap: lot.SoLuongNhap,
+            SoLuongTonKho: lot.SoLuongTonKho,
+            NgaySX: lot.NgaySX,
+            HanSD: lot.HanSD,
+            SoNgayConLai: lot.SoNgayConLai,
+        }));
+    }
     return r.recordset;
 }
 

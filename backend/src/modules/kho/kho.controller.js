@@ -65,7 +65,7 @@ const getLoByThuoc = asyncHandler(async (req, res) => {
         throw err;
     }
     const [items, tonKho, adjustments] = await Promise.all([
-        khoService.getLoByThuoc(maThuoc),
+        khoService.getLoByThuoc(maThuoc, req.user.role),
         khoService.getTonKhoThuoc(maThuoc),
         khoService.getAdjustmentsByThuoc(maThuoc),
     ]);
