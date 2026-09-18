@@ -97,6 +97,20 @@ export const MENU_ITEMS = [
         icon: 'BookOpen',
         path: '/api-docs',
         roles: ['Admin']                         // Chỉ Admin — Swagger nội bộ
+    },
+    {
+        key: 'audit-log',
+        label: 'Nhật ký hệ thống',
+        icon: 'ScrollText',
+        path: '/audit-log',
+        roles: ['Admin']
+    },
+    {
+        key: 'system-config',
+        label: 'Cấu hình',
+        icon: 'Settings',
+        path: '/system-config',
+        roles: ['Admin']
     }
 ];
 

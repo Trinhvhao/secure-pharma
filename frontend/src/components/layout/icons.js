@@ -16,6 +16,8 @@ import {
   FolderTree,
   ReceiptText,
   BookOpen,
+  ScrollText,
+  Settings,
 } from 'lucide-react';
 
 export const ICON_MAP = {
@@ -32,4 +34,6 @@ export const ICON_MAP = {
   FolderTree,
   ReceiptText,
   BookOpen,
+  ScrollText,
+  Settings,
 };

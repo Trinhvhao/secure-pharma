@@ -48,6 +48,8 @@ import ThongKePage from './pages/thongke/ThongKePage';
 
 // Admin - Tài liệu API (Swagger UI)
 import ApiDocsPage from './pages/admin/ApiDocsPage';
+import AuditLogPage from './pages/admin/AuditLogPage';
+import SystemConfigPage from './pages/admin/SystemConfigPage';
 
 function App() {
     return (
@@ -73,7 +75,14 @@ function App() {
                         <Route path="/danh-muc" element={<DanhMucPage />} />
 
                         {/* Phase 3B - Nhà cung cấp */}
-                        <Route path="/nha-cung-cap" element={<NhaCungCapPage />} />
+                        <Route
+                            path="/nha-cung-cap"
+                            element={
+                                <ProtectedRoute roles={['Admin', 'NV_BanHang', 'NV_Kho']}>
+                                    <NhaCungCapPage />
+                                </ProtectedRoute>
+                            }
+                        />
 
                         {/* Phase 3C - Khách hàng */}
                         <Route path="/khach-hang" element={<KhachHangPage />} />
@@ -86,9 +95,27 @@ function App() {
                         <Route path="/kho/ton-kho" element={<TonKhoPage />} />
                         <Route path="/kho/sap-het-hang" element={<SapHetHangPage />} />
                         <Route path="/kho/sap-het-han" element={<SapHetHanPage />} />
-                        <Route path="/kho/nhap" element={<PhieuNhapCreatePage />} />
-                        <Route path="/kho/phieu-nhap" element={<PhieuNhapListPage />} />
-                        <Route path="/kho/lich-su-dieu-chinh" element={<LichSuDieuChinhPage />} />
+                        <Route
+                            path="/kho/nhap"
+                            element={
+                                <ProtectedRoute roles={['Admin', 'NV_Kho']}>
+                                    <PhieuNhapCreatePage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/kho/phieu-nhap"
+                            element={
+                                <ProtectedRoute roles={['Admin', 'NV_Kho']}>
+                                    <PhieuNhapListPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route path="/kho/lich-su-dieu-chinh" element={
+                            <ProtectedRoute roles={['Admin', 'NV_Kho']}>
+                                <LichSuDieuChinhPage />
+                            </ProtectedRoute>
+                        } />
 
                         {/* Phase 3F - Bán hàng */}
                         <Route path="/ban-hang" element={<BanHangPage />} />
@@ -112,6 +139,20 @@ function App() {
 
                         {/* Admin - Tài liệu API (Swagger UI nhúng iframe trỏ về BE) */}
                         <Route path="/api-docs" element={<ApiDocsPage />} />
+
+                        {/* Admin - Nhật ký hệ thống */}
+                        <Route path="/audit-log" element={
+                            <ProtectedRoute roles={['Admin']}>
+                                <AuditLogPage />
+                            </ProtectedRoute>
+                        } />
+
+                        {/* Admin - Cấu hình hệ thống */}
+                        <Route path="/system-config" element={
+                            <ProtectedRoute roles={['Admin']}>
+                                <SystemConfigPage />
+                            </ProtectedRoute>
+                        } />
                     </Route>
 
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
