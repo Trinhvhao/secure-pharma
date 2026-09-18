@@ -596,7 +596,7 @@ function NhanVienPage() {
                     });
                 }
             } else {
-                await nhanVienService.create(formData);
+                await nhanVienService.create(payload);
                 toast.success('Tạo nhân viên thành công');
             }
             setModalOpen(false);
@@ -722,10 +722,15 @@ function NhanVienPage() {
                 });
                 toast.success('Cập nhật tài khoản thành công');
             } else if (accountModal.type === 'reset') {
-                const res = await nhanVienService.resetPassword(accountModal.nv.MaNV, accountForm.matKhau || undefined);
+                // Nếu checkbox "tự sinh MK" bật + không có MK nhập tay → để BE tự sinh
+                // (giống logic create-account: autoPassword honored chính xác)
+                const matKhauMoi = accountForm.autoPassword && !accountForm.matKhau
+                    ? undefined
+                    : (accountForm.matKhau || undefined);
+                const res = await nhanVienService.resetPassword(accountModal.nv.MaNV, matKhauMoi);
                 toast.success('Reset mật khẩu thành công');
                 setTempPwdResult({
-                    tenDangNhap: res?.data?.tenDangNhap,
+                    tenDangNhap: res?.data?.tenDangNhap || accountModal.nv.TenDangNhap,
                     matKhauTam: res?.data?.matKhauTam,
                     tenNV: accountModal.nv.TenNV,
                     action: 'reset',
@@ -1622,8 +1627,8 @@ function NhanVienPage() {
                         <div className="p-3 bg-warning-50 border border-warning-200 rounded-btn">
                             <p className="text-caption text-warning-800 mb-1">Mật khẩu tạm (chỉ hiển thị 1 lần)</p>
                             <div className="flex items-center justify-between gap-2">
-                                <code className="font-mono text-h3 font-bold text-warning-900 select-all">
-                                    {tempPwdResult.matKhauTam}
+                                <code className="font-mono text-h3 font-bold text-warning-900 select-all break-all">
+                                    {tempPwdResult.matKhauTam || '—'}
                                 </code>
                                 <button
                                     type="button"
