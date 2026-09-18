@@ -45,6 +45,13 @@ coverage/
 .eslintcache
 .vite/
 
+# Python cache (skills agent)
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # Cursor local
 .cursor/index/
 .codesign/
