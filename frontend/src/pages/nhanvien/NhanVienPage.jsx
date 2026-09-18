@@ -36,7 +36,6 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Pagination from '../../components/ui/Pagination';
 import StatCard from '../../components/ui/StatCard';
 import Badge from '../../components/ui/Badge';
-import Tabs from '../../components/ui/Tabs';
 import { DEFAULT_PAGE_SIZE } from '../../utils/constants';
 import { formatCurrency } from '../../utils/format';
 import { cn } from '../../utils/cn';
@@ -166,6 +165,12 @@ function EmployeeDetailModal({ nv, hoaDon = [], phieuNhap = [], loadingHD = fals
                                     {nv.SDT}
                                 </span>
                             )}
+                            {nv.GioiTinh && (
+                                <span className="flex items-center gap-1">
+                                    <UserCog className="w-3.5 h-3.5" aria-hidden="true" />
+                                    {nv.GioiTinh}
+                                </span>
+                            )}
                             <span className="flex items-center gap-1">
                                 <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
                                 {nv.NgayVaoLam
@@ -224,6 +229,42 @@ function EmployeeDetailModal({ nv, hoaDon = [], phieuNhap = [], loadingHD = fals
                                 {formatCurrency(tongChi)}
                             </p>
                         </div>
+                    </div>
+                )}
+
+                {/* Thông tin chi tiết */}
+                {(nv.Email || nv.ChucVu || nv.GioiTinh || nv.DiaChi || nv.GhiChu) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 p-4 bg-neutral-50 rounded-card">
+                        {nv.GioiTinh && (
+                            <div>
+                                <p className="text-caption text-neutral-500 mb-0.5">Giới tính</p>
+                                <p className="text-body text-neutral-900">{nv.GioiTinh}</p>
+                            </div>
+                        )}
+                        {nv.ChucVu && (
+                            <div>
+                                <p className="text-caption text-neutral-500 mb-0.5">Chức vụ</p>
+                                <p className="text-body text-neutral-900">{nv.ChucVu}</p>
+                            </div>
+                        )}
+                        {nv.Email && (
+                            <div>
+                                <p className="text-caption text-neutral-500 mb-0.5">Email</p>
+                                <p className="text-body text-neutral-900 break-all">{nv.Email}</p>
+                            </div>
+                        )}
+                        {nv.DiaChi && (
+                            <div className="sm:col-span-2">
+                                <p className="text-caption text-neutral-500 mb-0.5">Địa chỉ</p>
+                                <p className="text-body text-neutral-900">{nv.DiaChi}</p>
+                            </div>
+                        )}
+                        {nv.GhiChu && (
+                            <div className="sm:col-span-2">
+                                <p className="text-caption text-neutral-500 mb-0.5">Ghi chú</p>
+                                <p className="text-body text-neutral-900 whitespace-pre-wrap">{nv.GhiChu}</p>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -447,7 +488,6 @@ function NhanVienPage() {
     }, [keyword, vaiTro, trangThai]);
 
     // ── Modal: create / edit handlers ──────────────────────────────────────
-    const [createTab, setCreateTab] = useState('info');
     const [createAccountForm, setCreateAccountForm] = useState({
         enable: false,
         tenDangNhap: '',
@@ -464,7 +504,6 @@ function NhanVienPage() {
             tenNV: '', sdt: '', gioiTinh: '', luong: '', email: '', chucVu: '',
             diaChi: '', ngayVaoLam: new Date().toISOString().split('T')[0], trangThai: 'DangLam', ghiChu: '',
         });
-        setCreateTab('info');
         setCreateAccountForm({
             enable: false, tenDangNhap: '', matKhau: '',
             vaiTro: 'NV_BanHang', trangThai: 'HoatDong', autoPassword: true,
@@ -617,9 +656,13 @@ function NhanVienPage() {
             return;
         }
         setAccountModal({ type: 'update', nv });
+        // Full reset để tránh state pollution từ modal create trước đó
         setAccountForm({
+            tenDangNhap: nv.TenDangNhap || '',
+            matKhau: '',
             vaiTro: nv.VaiTro || 'NV_BanHang',
             trangThai: nv.TrangThai === 'Khoa' ? 'Khoa' : 'HoatDong',
+            autoPassword: true,
         });
         setAccountError('');
     };
@@ -630,8 +673,14 @@ function NhanVienPage() {
             return;
         }
         setAccountModal({ type: 'reset', nv });
-        // Reset matKhau về rỗng để tránh MK cũ từ lần mở trước bị gửi nhầm
-        setAccountForm((prev) => ({ ...prev, matKhau: '' }));
+        // Full reset — checkbox auto-generate luôn về true (UX nhất quán)
+        setAccountForm({
+            tenDangNhap: nv.TenDangNhap || '',
+            matKhau: '',
+            vaiTro: nv.VaiTro || 'NV_BanHang',
+            trangThai: nv.TrangThai || 'HoatDong',
+            autoPassword: true,
+        });
         setAccountError('');
     };
 
