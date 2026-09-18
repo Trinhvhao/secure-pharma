@@ -64,13 +64,15 @@ SecurePharma/
 
 ---
 
-## 🔑 Tài khoản demo (Phase 2+)
+## 🔑 Tài khoản demo
 
 | Username | Password | Vai trò | Quyền |
 |---|---|---|---|
-| `admin` | `admin123` | Admin (Quản lý) | Toàn quyền |
-| `nv1` | `nv123` | NV_BanHang | Bán thuốc, tìm kiếm |
-| `nv2` | `nv123` | NV_BanHang | Bán thuốc, tìm kiếm |
+| `admin.huong` | `Admin@2026` | Admin (Quản lý) | Toàn quyền |
+| `banhang.minh` | `BanHang@2026` | NV_BanHang | Bán thuốc, xem hóa đơn |
+| `kho.cuong` | `Kho@2026` | NV_Kho | Nhập / xuất kho, điều chỉnh tồn |
+
+> Pattern `role.tên` và password có ký tự đặc biệt + số + chữ hoa — xem chi tiết tại [`docs/INSTALL.md`](./docs/INSTALL.md#9-tài-khoản-demo).
 
 ---
 
@@ -79,13 +81,13 @@ SecurePharma/
 | Phase | Nội dung | Trạng thái |
 |:-:|---|:-:|
 | **Phase 1** | Project Foundation (BE + FE + DB) | ✅ HOÀN THÀNH |
-| Phase 2 | Authentication & RBAC | ⏳ Sẵn sàng code |
-| Phase 3 | Core Business Features | ⏳ |
-| Phase 4 | Security | ⏳ |
-| Phase 5 | Integration & Testing | ⏳ |
-| Phase 6 | Hoàn thiện đồ án | ⏳ |
+| **Phase 2** | Authentication & RBAC (JWT + bcrypt) | ✅ HOÀN THÀNH |
+| **Phase 3** | Core Business Features (Thuốc, Kho, Bán hàng, Hóa đơn) | ✅ HOÀN THÀNH |
+| **Phase 4** | Security (XSS, rate-limit, audit log, AES) | ✅ HOÀN THÀNH |
+| **Phase 5** | UI polish + integration testing | 🔄 ĐANG CHẠY |
+| **Phase 6** | Hoàn thiện đồ án + tài liệu | ⏳ |
 
-**Chi tiết Phase 1 xem tại:** [`PHASE1_CHECKLIST.md`](./docs/archive/PHASE1_CHECKLIST.md)
+Xem kế hoạch chi tiết tại [`IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -133,6 +135,7 @@ Mở `http://localhost:5173` → Click "Test API Connection" để verify.
 | [`UI_NOTIFICATIONS.md`](./docs/UI_NOTIFICATIONS.md) | 🔔 Hệ thống toast + ConfirmDialog — quy tắc & pattern dùng cho toàn FE |
 | [`API.md`](./docs/API.md) | 🔌 Tham chiếu Backend API đầy đủ (~70 endpoints, 13 module) |
 | [`SECURITY.md`](./docs/SECURITY.md) | 🔒 Giải thích các cơ chế bảo mật (RBAC, JWT, bcrypt, AES, XSS, rate-limit, audit) |
+| [`giai-dap-18-9.md`](./docs/giai-dap-18-9.md) | 📋 Giải đáp thắc mắc ngày 18/9 — phân loại KH/NCC, thiết bị khác đăng nhập, tài liệu API, quyền Admin |
 
 ---
 

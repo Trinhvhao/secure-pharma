@@ -48,3 +48,7 @@ coverage/
 # Cursor local
 .cursor/index/
 .codesign/
+
+# Local dev scripts (generated convenience scripts)
+# dev.ps1 / dev.bat hoặc các file tương tự — KHÔNG ignore (track luôn)
+# vì mỗi dev cần script chung. Nếu muốn ignore thì add vào section LOCAL bên dưới.
