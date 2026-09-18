@@ -104,6 +104,7 @@ async function getAll({ keyword = '', page = 1, limit = 10, vaiTro = '', trangTh
         SELECT
             nv.MaNV, nv.TenNV, nv.SDT, nv.GioiTinh, nv.Luong,
             nv.NgayVaoLam, nv.TrangThai, nv.CreatedAt, nv.UpdatedAt,
+            nv.Email, nv.ChucVu, nv.DiaChi, nv.GhiChu,
             tk.TenDangNhap, tk.VaiTro,
             ISNULL((
                 SELECT COUNT(*) FROM HoaDon hd WHERE hd.MaNV = nv.MaNV
@@ -147,7 +148,8 @@ async function getById(maNV) {
             FROM NhanVien nv WHERE nv.MaNV = @maNV
         )
         SELECT nv.MaNV, nv.TenNV, nv.SDT, nv.GioiTinh, nv.Luong, nv.NgayVaoLam,
-               nv.TrangThai, nv.CreatedAt, nv.UpdatedAt,
+               nv.TrangThai, nv.Email, nv.ChucVu, nv.DiaChi, nv.GhiChu,
+               nv.CreatedAt, nv.UpdatedAt,
                tk.TenDangNhap, tk.VaiTro,
                s.SoHoaDon, s.TongBan, s.SoPhieuNhap, s.TongNhap, s.SoPhieuChi, s.TongChi
         FROM NhanVien nv
@@ -289,16 +291,22 @@ async function getStats() {
 
 async function create(data) {
     const r = await db.query(
-        `INSERT INTO NhanVien (TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai)
-         OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong, INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.CreatedAt, INSERTED.UpdatedAt
-         VALUES (@tenNV, @sdt, @gioiTinh, @luong, @ngayVaoLam, @trangThai)`,
+        `INSERT INTO NhanVien (TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai, Email, ChucVu, DiaChi, GhiChu)
+         OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong,
+                INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.Email, INSERTED.ChucVu,
+                INSERTED.DiaChi, INSERTED.GhiChu, INSERTED.CreatedAt, INSERTED.UpdatedAt
+         VALUES (@tenNV, @sdt, @gioiTinh, @luong, @ngayVaoLam, @trangThai, @email, @chucVu, @diaChi, @ghiChu)`,
         {
             tenNV: data.tenNV,
             sdt: data.sdt || null,
             gioiTinh: data.gioiTinh || null,
             luong: data.luong || 0,
             ngayVaoLam: data.ngayVaoLam || new Date().toISOString().split('T')[0],
-            trangThai: data.trangThai || 'DangLam'
+            trangThai: data.trangThai || 'DangLam',
+            email: data.email || null,
+            chucVu: data.chucVu || null,
+            diaChi: data.diaChi || null,
+            ghiChu: data.ghiChu || null,
         }
     );
     return r.recordset[0];
@@ -307,8 +315,12 @@ async function create(data) {
 async function update(maNV, data) {
     const r = await db.query(
         `UPDATE NhanVien
-         SET TenNV = @tenNV, SDT = @sdt, GioiTinh = @gioiTinh, Luong = @luong, TrangThai = @trangThai, UpdatedAt = GETDATE()
-         OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong, INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.CreatedAt, INSERTED.UpdatedAt
+         SET TenNV = @tenNV, SDT = @sdt, GioiTinh = @gioiTinh, Luong = @luong,
+             TrangThai = @trangThai, Email = @email, ChucVu = @chucVu,
+             DiaChi = @diaChi, GhiChu = @ghiChu, UpdatedAt = GETDATE()
+         OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong,
+                INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.Email, INSERTED.ChucVu,
+                INSERTED.DiaChi, INSERTED.GhiChu, INSERTED.CreatedAt, INSERTED.UpdatedAt
          WHERE MaNV = @maNV`,
         {
             maNV,
@@ -316,7 +328,11 @@ async function update(maNV, data) {
             sdt: data.sdt || null,
             gioiTinh: data.gioiTinh || null,
             luong: data.luong || 0,
-            trangThai: data.trangThai || 'DangLam'
+            trangThai: data.trangThai || 'DangLam',
+            email: data.email || null,
+            chucVu: data.chucVu || null,
+            diaChi: data.diaChi || null,
+            ghiChu: data.ghiChu || null,
         }
     );
     return r.recordset[0] || null;
@@ -404,10 +420,14 @@ async function createWithAccount(nvData, tkData) {
         reqNV.input('luong', db.sql.Decimal(18, 2), nvData.luong || 0);
         reqNV.input('ngayVaoLam', db.sql.Date, nvData.ngayVaoLam ? new Date(nvData.ngayVaoLam) : new Date());
         reqNV.input('trangThai', db.sql.NVarChar, nvData.trangThai || 'DangLam');
+        reqNV.input('email', db.sql.NVarChar, nvData.email || null);
+        reqNV.input('chucVu', db.sql.NVarChar, nvData.chucVu || null);
+        reqNV.input('diaChi', db.sql.NVarChar, nvData.diaChi || null);
+        reqNV.input('ghiChu', db.sql.NVarChar, nvData.ghiChu || null);
         const insertNVR = await reqNV.query(`
-            INSERT INTO NhanVien (TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai)
-            OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong, INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.CreatedAt
-            VALUES (@tenNV, @sdt, @gioiTinh, @luong, @ngayVaoLam, @trangThai)
+            INSERT INTO NhanVien (TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai, Email, ChucVu, DiaChi, GhiChu)
+            OUTPUT INSERTED.MaNV, INSERTED.TenNV, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.Luong, INSERTED.NgayVaoLam, INSERTED.TrangThai, INSERTED.Email, INSERTED.ChucVu, INSERTED.DiaChi, INSERTED.GhiChu, INSERTED.CreatedAt
+            VALUES (@tenNV, @sdt, @gioiTinh, @luong, @ngayVaoLam, @trangThai, @email, @chucVu, @diaChi, @ghiChu)
         `);
         const nhanVien = insertNVR.recordset[0];
         const maNV = nhanVien.MaNV;

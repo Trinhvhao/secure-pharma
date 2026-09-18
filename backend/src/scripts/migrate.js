@@ -17,6 +17,19 @@
  *   1. Sửa DB_PASSWORD trong .env
  *   2. Chạy: npm run db:setup
  *   3. Server sẽ tự động kết nối được sau khi setup xong
+ *
+ * Thứ tự chạy setup:
+ *   1. createDatabase()
+ *   2. createTables()         → 01_create_tables.sql
+ *   3. seedData()             → 02_seed_data.sql
+ *   4. seedAccounts()          → bcrypt Node (4 account demo)
+ *   5. applyFile('99')         → 99_schema_patches.sql (ALTER)
+ *   6. applyFile('03')         → 03_inventory.sql
+ *   7. applyFile('04')         → 04_expiry_lots.sql
+ *   8. applyFile('05')         → 05_medicines.sql
+ *   9. applyFile('06')         → 06_sales.sql
+ *   10. applyFile('07')        → 07_vouchers.sql
+ *   11. applyFile('08')        → 08_audit_log.sql
  * ============================================================
  */
 
@@ -309,45 +322,76 @@ async function checkStatus() {
 }
 
 /**
- * 5. Apply migration patches (idempotent ALTERs)
- * Đọc tất cả file patch_* trong /database và chạy theo thứ tự.
- * Patch dùng IF EXISTS / IF NOT EXISTS để chạy nhiều lần không lỗi.
+ * Chạy 1 file SQL cố định (idempotent)
  */
-async function applyPatches() {
+async function applyFile(fileName) {
     const dbDir = path.join(__dirname, '..', '..', 'database');
-    // Quét patch theo tên: 03_patch_*, 04_patch_*, 05_patch_*, ... (bỏ qua 06 - vì 06 đã có nhưng vẫn scan, idempotent OK)
-    const patchFiles = fs.readdirSync(dbDir)
-        .filter(f => /^\d+_patch_.*\.sql$/.test(f))
-        .sort(); // chạy theo thứ tự số
+    const fullPath = path.join(dbDir, fileName);
 
-    if (patchFiles.length === 0) {
-        console.log(`\n   ℹ️  Không có patch nào để chạy.`);
+    if (!fs.existsSync(fullPath)) {
+        console.log(`   ℹ️  Không tìm thấy: ${fileName}, bỏ qua.`);
         return;
     }
 
-    console.log(`\n🔧 [5/5] Apply ${patchFiles.length} migration patch(es)...`);
+    const sqlContent = fs.readFileSync(fullPath, 'utf8');
+    const batches = splitSqlBatches(sqlContent);
 
     let pool;
     try {
         pool = await sql.connect(getTargetConfig());
-
-        for (const file of patchFiles) {
-            const fullPath = path.join(dbDir, file);
-            const sqlContent = fs.readFileSync(fullPath, 'utf8');
-            const batches = splitSqlBatches(sqlContent);
-
-            for (let i = 0; i < batches.length; i++) {
-                const batch = batches[i];
-                if (/USE\s+SecurePharmaDB/i.test(batch)) continue;
-                await executeBatch(pool, batch, `${file} - batch ${i + 1}/${batches.length}`);
-            }
+        for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            if (/USE\s+SecurePharmaDB/i.test(batch)) continue;
+            await executeBatch(pool, batch, `${fileName} [${i + 1}/${batches.length}]`);
         }
-        console.log(`   ✅ Apply patches hoàn tất.`);
-    } catch (err) {
-        console.error(`   ❌ Lỗi apply patch: ${err.message}`);
-        throw err;
     } finally {
         if (pool) await pool.close();
+    }
+}
+
+/**
+ * 5. Apply all seed files in fixed order (idempotent)
+ *
+ * Thứ tự QUAN TRỌNG — phải đúng FK ordering:
+ *   1. Schema ALTERs (99) — cần bảng đã có, không cần FK mới
+ *   2. Inventory (03) — FK: MaPN → PhieuNhap, MaThuoc → Thuoc
+ *   3. Expiry lots (04) — FK: MaPN → PhieuNhap, MaThuoc → Thuoc
+ *   4. Medicines (05) — FK: MaNV → NhanVien, MaDM → DanhMuc
+ *      (Thuoc cần MaDM đã tồn tại; NhanVien cần bảng NhanVien đã có)
+ *   5. Sales (06) — FK: MaLo → LoThuoc, MaKH → KhachHang, MaNV → NhanVien
+ *   6. Vouchers (07) — FK: MaHD → HoaDon, MaNV → NhanVien
+ *   7. Audit log (08) — ghi nhận seed hoàn tất
+ */
+async function applySeedFiles() {
+    console.log(`\n🔧 [5/5] Apply seed files in order...`);
+
+    // Thứ tự: schema patches → inventory → expiry → medicines → sales → vouchers → audit → system-config
+    const seedFiles = [
+        '99_schema_patches.sql',
+        '18_patch_nhanvien_profile.sql',
+        '03_inventory.sql',
+        '04_expiry_lots.sql',
+        '05_medicines.sql',
+        '06_sales.sql',
+        '07_vouchers.sql',
+        '08_audit_log.sql',
+        '18_system_config.sql',
+    ];
+
+    let allOk = true;
+    for (const file of seedFiles) {
+        try {
+            await applyFile(file);
+        } catch (err) {
+            console.error(`   ❌ Lỗi khi chạy ${file}: ${err.message}`);
+            allOk = false;
+        }
+    }
+
+    if (allOk) {
+        console.log(`   ✅ Apply seed files hoàn tất.`);
+    } else {
+        throw new Error('Một hoặc nhiều seed file thất bại.');
     }
 }
 
@@ -395,6 +439,7 @@ async function resetDatabase() {
         await createTables();
         await seedData();
         await seedAccounts();
+        await applySeedFiles();
 
         console.log(`\n✅ RESET HOÀN TẤT!`);
     } catch (err) {
@@ -417,12 +462,12 @@ async function main() {
     try {
         switch (action) {
             case 'setup':
-                // Setup đầy đủ: tạo DB + tables + seed + accounts + patches
+                // Setup đầy đủ: tạo DB + tables + seed + accounts + seed files
                 await createDatabase();
                 await createTables();
                 await seedData();
                 await seedAccounts();
-                await applyPatches();
+                await applySeedFiles();
                 console.log(`\n${'═'.repeat(60)}`);
                 console.log(`✅ SETUP HOÀN TẤT!`);
                 console.log(`${'═'.repeat(60)}`);
@@ -455,9 +500,9 @@ async function main() {
                 break;
 
             case 'patches':
-                // Chỉ apply migration patches
-                await applyPatches();
-                console.log(`\n✅ Apply patches hoàn tất!`);
+                // Chỉ apply seed files (nếu tables đã tồn tại)
+                await applySeedFiles();
+                console.log(`\n✅ Apply seed files hoàn tất!`);
                 break;
 
             case 'status':

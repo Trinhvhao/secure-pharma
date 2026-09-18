@@ -110,16 +110,31 @@ router.get('/:id/phieu-nhap', ctrl.getPhieuNhapByNCC);
  *             type: object
  *             required: [tenNCC]
  *             properties:
- *               tenNCC: { type: string, example: 'Công ty Dược Hậu Giang' }
- *               sdt: { type: string, example: '02923891234' }
- *               email: { type: string, nullable: true }
- *               diaChi: { type: string, nullable: true }
- *               maSoThue: { type: string, nullable: true }
- *               nguoiDaiDien: { type: string, nullable: true }
+ *               tenNCC:
+ *                 type: string
+ *                 example: 'Công ty Dược Hậu Giang'
+ *               sdt:
+ *                 type: string
+ *                 example: '02923891234'
+ *               email:
+ *                 type: string
+ *                 nullable: true
+ *               diaChi:
+ *                 type: string
+ *                 nullable: true
+ *               maSoThue:
+ *                 type: string
+ *                 nullable: true
+ *               nguoiDaiDien:
+ *                 type: string
+ *                 nullable: true
  *     responses:
- *       201: { description: Tạo thành công }
- *       400: { description: Dữ liệu không hợp lệ }
- *       403: { description: Không đủ quyền (cần Admin) }
+ *       201:
+ *         description: Tạo thành công
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ *       403:
+ *         description: Không đủ quyền (cần Admin)
  */
 router.post('/', writeLimiter, requireRole('Admin'), audit('CREATE_NCC'), ctrl.create);
 

@@ -365,7 +365,8 @@ function NhanVienPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
     const [formData, setFormData] = useState({
-        tenNV: '', sdt: '', gioiTinh: '', luong: 0, ngayVaoLam: '', trangThai: 'DangLam',
+        tenNV: '', sdt: '', gioiTinh: '', luong: '', email: '', chucVu: '',
+        diaChi: '', ngayVaoLam: '', trangThai: 'DangLam', ghiChu: '',
     });
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -460,8 +461,8 @@ function NhanVienPage() {
         setEditing(null);
         setFormError('');
         setFormData({
-            tenNV: '', sdt: '', gioiTinh: '', luong: 0,
-            ngayVaoLam: new Date().toISOString().split('T')[0], trangThai: 'DangLam',
+            tenNV: '', sdt: '', gioiTinh: '', luong: '', email: '', chucVu: '',
+            diaChi: '', ngayVaoLam: new Date().toISOString().split('T')[0], trangThai: 'DangLam', ghiChu: '',
         });
         setCreateTab('info');
         setCreateAccountForm({
@@ -475,12 +476,16 @@ function NhanVienPage() {
         setEditing(it);
         setFormError('');
         setFormData({
-            tenNV: it.TenNV,
+            tenNV: it.TenNV || '',
             sdt: it.SDT || '',
             gioiTinh: it.GioiTinh || '',
-            luong: it.Luong || 0,
+            luong: it.Luong ?? '',
+            email: it.Email || '',
+            chucVu: it.ChucVu || '',
+            diaChi: it.DiaChi || '',
             ngayVaoLam: it.NgayVaoLam ? new Date(it.NgayVaoLam).toISOString().split('T')[0] : '',
             trangThai: it.TrangThai || 'DangLam',
+            ghiChu: it.GhiChu || '',
         });
         setModalOpen(true);
     };
@@ -519,8 +524,14 @@ function NhanVienPage() {
         }
         setSubmitting(true);
         try {
+            // Normalize payload: luong string → number, empty string → 0
+            const payload = {
+                ...formData,
+                luong: formData.luong === '' ? 0 : Number(formData.luong) || 0,
+            };
+
             if (editing) {
-                await nhanVienService.update(editing.MaNV, formData);
+                await nhanVienService.update(editing.MaNV, payload);
                 toast.success('Cập nhật thành công');
             } else if (createAccountForm.enable) {
                 // Tạo NV + cấp TK trong 1 lần
@@ -533,7 +544,7 @@ function NhanVienPage() {
                 };
                 if (createAccountForm.matKhau) tkPayload.matKhau = createAccountForm.matKhau;
 
-                const res = await nhanVienService.createWithAccount(formData, tkPayload);
+                const res = await nhanVienService.createWithAccount(payload, tkPayload);
                 toast.success('Tạo nhân viên và cấp tài khoản thành công');
 
                 // Hiển thị MK tạm nếu có
@@ -1085,156 +1096,209 @@ function NhanVienPage() {
                 open={modalOpen}
                 onClose={() => setModalOpen(false)}
                 title={editing ? 'Sửa nhân viên' : 'Thêm nhân viên'}
-                description={editing ? 'Cập nhật thông tin cơ bản của nhân viên.' : 'Tạo hồ sơ nhân viên mới và cấp tài khoản đăng nhập (tuỳ chọn).'}
+                description={editing ? 'Cập nhật thông tin nhân viên.' : 'Tạo hồ sơ nhân viên mới và cấp tài khoản đăng nhập (tuỳ chọn).'}
                 icon={editing ? <Edit2 /> : <Plus />}
-                size="lg"
+                size="xl"
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Tabs chỉ hiện khi tạo mới (cho phép cấp TK luôn) */}
-                    {!editing && (
-                        <Tabs
-                            activeKey={createTab}
-                            onChange={setCreateTab}
-                            items={[
-                                { key: 'info', label: 'Thông tin', icon: <UserCog className="w-4 h-4" /> },
-                                { key: 'account', label: 'Tài khoản đăng nhập', icon: <UserPlus className="w-4 h-4" />, badge: createAccountForm.enable ? '✓' : undefined },
-                            ]}
-                        />
-                    )}
-
-                    {(editing || createTab === 'info') && (
-                    <div className="space-y-4">
-                    <Input
-                        label="Tên nhân viên"
-                        required
-                        value={formData.tenNV}
-                        onChange={(e) => setFormData({ ...formData, tenNV: e.target.value })}
-                        maxLength={200}
-                        placeholder="VD: Nguyễn Văn An"
-                    />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Input
-                            label="Số điện thoại"
-                            value={formData.sdt}
-                            onChange={(e) => setFormData({ ...formData, sdt: e.target.value })}
-                            placeholder="VD: 0912345678"
-                        />
-                        <Select
-                            label="Giới tính"
-                            value={formData.gioiTinh}
-                            onChange={(v) => setFormData({ ...formData, gioiTinh: v })}
-                            options={[
-                                { value: '', label: '—' },
-                                { value: 'Nam', label: 'Nam' },
-                                { value: 'Nữ', label: 'Nữ' },
-                                { value: 'Khác', label: 'Khác' },
-                            ]}
-                            placeholder="—"
-                        />
-                        <Input
-                            label="Lương"
-                            type="number"
-                            min="0"
-                            step="100000"
-                            value={formData.luong}
-                            onChange={(e) => setFormData({ ...formData, luong: Number(e.target.value) })}
-                            hint="VND"
-                        />
-                        <Input
-                            label="Ngày vào làm"
-                            type="date"
-                            value={formData.ngayVaoLam}
-                            onChange={(e) => setFormData({ ...formData, ngayVaoLam: e.target.value })}
-                        />
-                    </div>
-                    <Select
-                        label="Trạng thái"
-                        value={formData.trangThai}
-                        onChange={(v) => setFormData({ ...formData, trangThai: v })}
-                        options={[
-                            { value: 'DangLam', label: 'Đang làm' },
-                            { value: 'NghiViec', label: 'Nghỉ việc' },
-                        ]}
-                    />
-                    </div>
-                    )}
-
-                    {!editing && createTab === 'account' && (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* ── Section 1: Thông tin cơ bản ───────────────────────── */}
+                    <div>
+                        <h3 className="text-caption font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                            Thông tin cơ bản
+                        </h3>
                         <div className="space-y-4">
-                            <div className="flex items-start gap-2 p-3 bg-primary-50 border border-primary-100 rounded-btn">
-                                <input
-                                    type="checkbox"
-                                    id="enableAccount"
-                                    checked={createAccountForm.enable}
-                                    onChange={(e) => setCreateAccountForm({ ...createAccountForm, enable: e.target.checked })}
-                                    className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                            <Input
+                                label="Tên nhân viên"
+                                required
+                                value={formData.tenNV}
+                                onChange={(e) => setFormData({ ...formData, tenNV: e.target.value })}
+                                maxLength={200}
+                                placeholder="VD: Nguyễn Văn An"
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Input
+                                    label="Số điện thoại"
+                                    value={formData.sdt}
+                                    onChange={(e) => setFormData({ ...formData, sdt: e.target.value })}
+                                    placeholder="VD: 0912345678"
                                 />
-                                <label htmlFor="enableAccount" className="text-body text-neutral-700 cursor-pointer flex-1">
-                                    <span className="font-medium">Cấp tài khoản đăng nhập ngay</span>
-                                    <span className="block text-caption text-neutral-500">
-                                        Bật để tạo NV + tài khoản trong 1 thao tác (transaction atomic). Nếu không, có thể cấp sau từ bảng.
-                                    </span>
-                                </label>
+                                <Input
+                                    label="Email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    placeholder="VD: nguyen.van.an@email.com"
+                                />
+                                <Select
+                                    label="Giới tính"
+                                    value={formData.gioiTinh}
+                                    onChange={(v) => setFormData({ ...formData, gioiTinh: v })}
+                                    options={[
+                                        { value: '', label: '—' },
+                                        { value: 'Nam', label: 'Nam' },
+                                        { value: 'Nữ', label: 'Nữ' },
+                                        { value: 'Khác', label: 'Khác' },
+                                    ]}
+                                    placeholder="—"
+                                />
+                                <Input
+                                    label="Chức vụ"
+                                    value={formData.chucVu}
+                                    onChange={(e) => setFormData({ ...formData, chucVu: e.target.value })}
+                                    placeholder="VD: Nhân viên bán hàng, Quản lý, Trưởng phòng..."
+                                />
                             </div>
-
-                            {createAccountForm.enable && (
-                                <>
-                                    <Input
-                                        label="Tên đăng nhập"
-                                        value={createAccountForm.tenDangNhap}
-                                        onChange={(e) => setCreateAccountForm({ ...createAccountForm, tenDangNhap: e.target.value })}
-                                        placeholder="VD: banhang.anh"
-                                        hint="Để trống = tự sinh từ tên NV (vd: nguyen.van.an). Theo naming-conventions: banhang.minh, kho.cuong"
-                                    />
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <Select
-                                            label="Vai trò (phân quyền)"
-                                            value={createAccountForm.vaiTro}
-                                            onChange={(v) => setCreateAccountForm({ ...createAccountForm, vaiTro: v })}
-                                            options={[
-                                                { value: 'Admin', label: '👑 Quản lý (Admin)' },
-                                                { value: 'NV_BanHang', label: '🛒 Nhân viên bán hàng' },
-                                                { value: 'NV_Kho', label: '📦 Thủ kho' },
-                                            ]}
-                                        />
-                                        <Select
-                                            label="Trạng thái TK"
-                                            value={createAccountForm.trangThai}
-                                            onChange={(v) => setCreateAccountForm({ ...createAccountForm, trangThai: v })}
-                                            options={[
-                                                { value: 'HoatDong', label: '✓ Hoạt động' },
-                                                { value: 'Khoa', label: '✕ Khóa' },
-                                            ]}
-                                        />
-                                    </div>
-                                    <div className="flex items-start gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-btn">
-                                        <input
-                                            type="checkbox"
-                                            id="autoPwd"
-                                            checked={createAccountForm.autoPassword}
-                                            onChange={(e) => setCreateAccountForm({ ...createAccountForm, autoPassword: e.target.checked, matKhau: '' })}
-                                            className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
-                                        />
-                                        <label htmlFor="autoPwd" className="text-body text-neutral-700 cursor-pointer flex-1">
-                                            <span className="font-medium">Tự sinh mật khẩu ngẫu nhiên</span>
-                                            <span className="block text-caption text-neutral-500">
-                                                Hệ thống tạo mật khẩu 12 ký tự (đảm bảo chính sách mạnh) và hiển thị sau khi lưu.
-                                            </span>
-                                        </label>
-                                    </div>
-                                    {!createAccountForm.autoPassword && (
-                                        <Input
-                                            label="Mật khẩu"
-                                            type="text"
-                                            required
-                                            value={createAccountForm.matKhau}
-                                            onChange={(e) => setCreateAccountForm({ ...createAccountForm, matKhau: e.target.value })}
-                                            placeholder="Tối thiểu 8 ký tự (hoa + thường + số + đặc biệt)"
-                                        />
-                                    )}
-                                </>
-                            )}
+                            <Input
+                                label="Địa chỉ"
+                                value={formData.diaChi}
+                                onChange={(e) => setFormData({ ...formData, diaChi: e.target.value })}
+                                placeholder="VD: 123 Nguyễn Trãi, Quận 1, TP.HCM"
+                            />
                         </div>
+                    </div>
+
+                    {/* ── Divider ──────────────────────────────────────────── */}
+                    <div className="border-t border-neutral-200" />
+
+                    {/* ── Section 2: Công việc & lương ────────────────────── */}
+                    <div>
+                        <h3 className="text-caption font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                            Công việc &amp; lương
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <Input
+                                label="Lương cơ bản"
+                                type="number"
+                                min="0"
+                                step="100000"
+                                value={formData.luong}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData({ ...formData, luong: val === '' ? '' : Number(val) });
+                                }}
+                                placeholder="VD: 5000000"
+                                hint="VND"
+                            />
+                            <Input
+                                label="Ngày vào làm"
+                                type="date"
+                                value={formData.ngayVaoLam}
+                                onChange={(e) => setFormData({ ...formData, ngayVaoLam: e.target.value })}
+                            />
+                            <Select
+                                label="Trạng thái"
+                                value={formData.trangThai}
+                                onChange={(v) => setFormData({ ...formData, trangThai: v })}
+                                options={[
+                                    { value: 'DangLam', label: 'Đang làm' },
+                                    { value: 'NghiViec', label: 'Nghỉ việc' },
+                                ]}
+                            />
+                        </div>
+                    </div>
+
+                    {/* ── Section 3: Ghi chú ─────────────────────────────── */}
+                    <div>
+                        <h3 className="text-caption font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                            Ghi chú
+                        </h3>
+                        <textarea
+                            className="w-full h-20 px-3 py-2 text-body text-neutral-900 bg-white border border-neutral-300 rounded-btn
+                                placeholder:text-neutral-400 resize-none
+                                focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
+                                disabled:bg-neutral-50 disabled:text-neutral-500"
+                            value={formData.ghiChu}
+                            onChange={(e) => setFormData({ ...formData, ghiChu: e.target.value })}
+                            placeholder="Ghi chú thêm về nhân viên..."
+                            maxLength={1000}
+                        />
+                    </div>
+
+                    {/* ── Section 4: Tài khoản (chỉ khi tạo mới) ─────────── */}
+                    {!editing && (
+                        <>
+                            <div className="border-t border-neutral-200" />
+                            <div>
+                                <h3 className="text-caption font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                                    Tài khoản đăng nhập
+                                </h3>
+
+                                <div className="flex items-start gap-2 p-3 bg-primary-50 border border-primary-100 rounded-btn">
+                                    <input
+                                        type="checkbox"
+                                        id="enableAccount"
+                                        checked={createAccountForm.enable}
+                                        onChange={(e) => setCreateAccountForm({ ...createAccountForm, enable: e.target.checked })}
+                                        className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                    />
+                                    <label htmlFor="enableAccount" className="text-body text-neutral-700 cursor-pointer flex-1">
+                                        <span className="font-medium">Cấp tài khoản đăng nhập ngay</span>
+                                        <span className="block text-caption text-neutral-500">
+                                            Bật để tạo NV + tài khoản trong 1 thao tác (transaction atomic).
+                                            Nếu không, có thể cấp sau từ bảng.
+                                        </span>
+                                    </label>
+                                </div>
+
+                                {createAccountForm.enable && (
+                                    <div className="mt-4 space-y-4 p-4 bg-neutral-50 border border-neutral-200 rounded-btn">
+                                        <Input
+                                            label="Tên đăng nhập"
+                                            value={createAccountForm.tenDangNhap}
+                                            onChange={(e) => setCreateAccountForm({ ...createAccountForm, tenDangNhap: e.target.value })}
+                                            placeholder="VD: banhang.anh"
+                                            hint="Để trống = tự sinh từ tên NV (vd: nguyen.van.an). Theo naming-conventions: banhang.minh, kho.cuong"
+                                        />
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <Select
+                                                label="Vai trò (phân quyền)"
+                                                value={createAccountForm.vaiTro}
+                                                onChange={(v) => setCreateAccountForm({ ...createAccountForm, vaiTro: v })}
+                                                options={[
+                                                    { value: 'Admin', label: '👑 Quản lý (Admin)' },
+                                                    { value: 'NV_BanHang', label: '🛒 Nhân viên bán hàng' },
+                                                    { value: 'NV_Kho', label: '📦 Thủ kho' },
+                                                ]}
+                                            />
+                                            <Select
+                                                label="Trạng thái TK"
+                                                value={createAccountForm.trangThai}
+                                                onChange={(v) => setCreateAccountForm({ ...createAccountForm, trangThai: v })}
+                                                options={[
+                                                    { value: 'HoatDong', label: '✓ Hoạt động' },
+                                                    { value: 'Khoa', label: '✕ Khóa' },
+                                                ]}
+                                            />
+                                        </div>
+                                        <div className="flex items-start gap-2 p-3 bg-white border border-neutral-200 rounded-btn">
+                                            <input
+                                                type="checkbox"
+                                                id="autoPwd"
+                                                checked={createAccountForm.autoPassword}
+                                                onChange={(e) => setCreateAccountForm({ ...createAccountForm, autoPassword: e.target.checked, matKhau: '' })}
+                                                className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                            />
+                                            <label htmlFor="autoPwd" className="text-body text-neutral-700 cursor-pointer flex-1">
+                                                <span className="font-medium">Tự sinh mật khẩu ngẫu nhiên</span>
+                                                <span className="block text-caption text-neutral-500">
+                                                    Hệ thống tạo mật khẩu 12 ký tự (hoa/thường/số/đặc biệt) và hiển thị sau khi lưu.
+                                                </span>
+                                            </label>
+                                        </div>
+                                        {!createAccountForm.autoPassword && (
+                                            <Input
+                                                label="Mật khẩu"
+                                                type="text"
+                                                required
+                                                value={createAccountForm.matKhau}
+                                                onChange={(e) => setCreateAccountForm({ ...createAccountForm, matKhau: e.target.value })}
+                                                placeholder="Tối thiểu 8 ký tự (hoa + thường + số + đặc biệt)"
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {formError && (
@@ -1243,7 +1307,7 @@ function NhanVienPage() {
                         </div>
                     )}
 
-                    <div className="flex gap-2 pt-2 justify-end">
+                    <div className="flex gap-2 pt-2 justify-end border-t border-neutral-100">
                         <Button
                             variant="secondary"
                             onClick={() => setModalOpen(false)}
@@ -1252,7 +1316,9 @@ function NhanVienPage() {
                             Hủy
                         </Button>
                         <Button variant="primary" type="submit" loading={submitting}>
-                            {editing ? 'Cập nhật' : (createAccountForm.enable ? 'Tạo NV + tài khoản' : 'Tạo mới')}
+                            {editing
+                                ? 'Cập nhật'
+                                : (createAccountForm.enable ? 'Tạo nhân viên + tài khoản' : 'Tạo nhân viên')}
                         </Button>
                     </div>
                 </form>

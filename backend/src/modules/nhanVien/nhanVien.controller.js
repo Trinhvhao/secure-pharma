@@ -56,7 +56,7 @@ const getPhieuNhapByNV = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-    const { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai, taiKhoan } = req.body;
+    const { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai, email, chucVu, diaChi, ghiChu, taiKhoan } = req.body;
     if (!tenNV) return error(res, 'Vui lòng nhập tên nhân viên', 400);
 
     const luongNum = Number(luong);
@@ -64,13 +64,19 @@ const create = asyncHandler(async (req, res) => {
         return error(res, 'Lương phải ≥ 0', 400);
     }
 
+    const nvFields = {
+        tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null,
+        luong: isNaN(luongNum) ? 0 : luongNum,
+        ngayVaoLam: ngayVaoLam || null,
+        trangThai: trangThai || 'DangLam',
+        email: email || null, chucVu: chucVu || null,
+        diaChi: diaChi || null, ghiChu: ghiChu || null,
+    };
+
     // Nếu payload có taiKhoan → tạo NV + cấp tài khoản trong 1 transaction.
     if (taiKhoan) {
         try {
-            const result = await nvService.createWithAccount(
-                { tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null, luong: isNaN(luongNum) ? 0 : luongNum, ngayVaoLam: ngayVaoLam || null, trangThai: trangThai || 'DangLam' },
-                taiKhoan
-            );
+            const result = await nvService.createWithAccount(nvFields, taiKhoan);
             return created(res, result, 'Tạo nhân viên và cấp tài khoản thành công');
         } catch (err) {
             if (err.statusCode) return error(res, err.message, err.statusCode);
@@ -78,12 +84,12 @@ const create = asyncHandler(async (req, res) => {
         }
     }
 
-    const item = await nvService.create({ tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null, luong: isNaN(luongNum) ? 0 : luongNum, ngayVaoLam: ngayVaoLam || null, trangThai: trangThai || 'DangLam' });
+    const item = await nvService.create(nvFields);
     return created(res, item, 'Tạo nhân viên thành công');
 });
 
 const update = asyncHandler(async (req, res) => {
-    const { tenNV, sdt, gioiTinh, luong, trangThai } = req.body;
+    const { tenNV, sdt, gioiTinh, luong, trangThai, email, chucVu, diaChi, ghiChu } = req.body;
     if (!tenNV) return error(res, 'Vui lòng nhập tên nhân viên', 400);
 
     const luongNum = Number(luong);
@@ -98,7 +104,13 @@ const update = asyncHandler(async (req, res) => {
         }
     }
 
-    const item = await nvService.update(parseInt(req.params.id), { tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null, luong: isNaN(luongNum) ? 0 : luongNum, trangThai: trangThai || 'DangLam' });
+    const item = await nvService.update(parseInt(req.params.id), {
+        tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null,
+        luong: isNaN(luongNum) ? 0 : luongNum,
+        trangThai: trangThai || 'DangLam',
+        email: email || null, chucVu: chucVu || null,
+        diaChi: diaChi || null, ghiChu: ghiChu || null,
+    });
     if (!item) return notFound(res, `Không tìm thấy NV #${req.params.id}`);
     return success(res, item, 'Cập nhật thành công');
 });
