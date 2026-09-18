@@ -585,9 +585,9 @@ function NhanVienPage() {
             return;
         }
         // Gợi ý username theo pattern role.tên (admin.huong, banhang.minh, kho.cuong)
-        const firstName = (nv.TenNV || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
-        const slugMap = { Nam: 'a', Nữ: 'a', Nu: 'a', Khác: 'a' };
-        const suggested = `nv.${firstName}`;
+        // Lấy tên cuối cùng trong họ tên làm phần "tên" trong username
+        const lastName = (nv.TenNV || '').trim().split(/\s+/).pop()?.toLowerCase() || '';
+        const suggested = `nv.${lastName}`;
 
         setAccountModal({ type: 'create', nv });
         setAccountForm({
@@ -619,6 +619,8 @@ function NhanVienPage() {
             return;
         }
         setAccountModal({ type: 'reset', nv });
+        // Reset matKhau về rỗng để tránh MK cũ từ lần mở trước bị gửi nhầm
+        setAccountForm((prev) => ({ ...prev, matKhau: '' }));
         setAccountError('');
     };
 
@@ -1419,12 +1421,8 @@ function NhanVienPage() {
                                 <input
                                     type="checkbox"
                                     id="autoPwdReset"
-                                    defaultChecked
-                                    onChange={(e) => {
-                                        if (e.target.checked) {
-                                            setAccountForm({ ...accountForm, matKhau: '' });
-                                        }
-                                    }}
+                                    checked={accountForm.autoPassword !== false}
+                                    onChange={(e) => setAccountForm({ ...accountForm, autoPassword: e.target.checked, matKhau: '' })}
                                     className="mt-1 w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
                                 />
                                 <label htmlFor="autoPwdReset" className="text-body text-neutral-700 cursor-pointer flex-1">
@@ -1434,6 +1432,17 @@ function NhanVienPage() {
                                     </span>
                                 </label>
                             </div>
+                            {accountForm.autoPassword === false && (
+                                <Input
+                                    label="Mật khẩu mới"
+                                    type="text"
+                                    required
+                                    value={accountForm.matKhau}
+                                    onChange={(e) => setAccountForm({ ...accountForm, matKhau: e.target.value })}
+                                    placeholder="Tối thiểu 8 ký tự (hoa + thường + số + đặc biệt)"
+                                    hint="Mật khẩu sẽ được hash bằng bcrypt trước khi lưu."
+                                />
+                            )}
                         </>
                     )}
 

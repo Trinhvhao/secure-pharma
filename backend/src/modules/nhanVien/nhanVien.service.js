@@ -347,6 +347,11 @@ async function createWithAccount(nvData, tkData) {
     if (!nvData.tenNV) {
         const err = new Error('Vui lòng nhập tên nhân viên'); err.statusCode = 400; throw err;
     }
+    // Không cho cấp TK cho NV tạo mới với trạng thái "Nghỉ việc" (vô nghĩa về nghiệp vụ)
+    if (nvData.trangThai === 'NghiViec') {
+        const err = new Error('Không thể cấp tài khoản cho nhân viên có trạng thái "Nghỉ việc". Vui lòng tạo NV với trạng thái "Đang làm".');
+        err.statusCode = 409; throw err;
+    }
     if (!tkData) tkData = {};
 
     // Tự sinh username / password nếu được yêu cầu
@@ -438,10 +443,16 @@ async function createWithAccount(nvData, tkData) {
  * Cấp tài khoản cho NV đã tồn tại nhưng chưa có TK.
  */
 async function createAccountForExisting(maNV, tkData) {
-    // Kiểm tra NV tồn tại
-    const nvR = await db.query(`SELECT MaNV, TenNV FROM NhanVien WHERE MaNV = @maNV`, { maNV });
+    // Kiểm tra NV tồn tại + lấy trạng thái làm việc
+    const nvR = await db.query(`SELECT MaNV, TenNV, TrangThai FROM NhanVien WHERE MaNV = @maNV`, { maNV });
     if (nvR.recordset.length === 0) {
         const err = new Error(`Không tìm thấy nhân viên #${maNV}`); err.statusCode = 404; throw err;
+    }
+
+    // Không cho cấp TK mới cho NV đã nghỉ việc (nghiệp vụ: NV nghỉ → khoá/xóa TK chứ không cấp mới)
+    if (nvR.recordset[0].TrangThai === 'NghiViec') {
+        const err = new Error(`Không thể cấp tài khoản cho nhân viên đã nghỉ việc. Hãy chuyển trạng thái NV về "Đang làm" trước.`);
+        err.statusCode = 409; throw err;
     }
 
     // Kiểm tra NV chưa có TK
