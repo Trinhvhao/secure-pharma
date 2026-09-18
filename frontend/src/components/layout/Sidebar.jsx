@@ -36,7 +36,8 @@ const MENU_GROUPS = [
   {
     key: 'admin',
     label: 'Quản trị',
-    items: ['taichinh', 'thongke', 'change-password', 'api-docs'],
+    // Audit log + System config (Phase 3I — Admin-only observability)
+    items: ['taichinh', 'thongke', 'audit-log', 'system-config', 'change-password', 'api-docs'],
   },
 ];
 
