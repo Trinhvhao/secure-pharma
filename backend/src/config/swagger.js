@@ -52,7 +52,9 @@ const options = {
       { name: 'Nhân viên', description: 'Quản lý nhân viên + tài khoản' },
       { name: 'Phiếu chi', description: 'Phiếu chi (tiền ra)' },
       { name: 'Phiếu thu', description: 'Phiếu thu (tiền vào)' },
-      { name: 'Thống kê', description: 'Báo cáo kho / hóa đơn / tài chính' }
+      { name: 'Thống kê', description: 'Báo cáo kho / hóa đơn / tài chính' },
+      { name: 'Audit Log', description: 'Nhật ký hệ thống (Admin only)' },
+      { name: 'System Config', description: 'Cấu hình hệ thống (Admin only)' }
     ]
   },
   apis: [

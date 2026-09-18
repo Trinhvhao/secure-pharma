@@ -9,6 +9,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../../config/db');
+const { validatePassword } = require('../../utils/password');
 
 const SALT_ROUNDS = 10;
 
@@ -56,7 +57,10 @@ async function login(username, password) {
     try {
         // Find user by username - DUNG PARAMETERIZED QUERY
         const result = await db.query(
-            'SELECT * FROM TaiKhoan WHERE TenDangNhap = @username',
+            `SELECT tk.*, nv.TrangThai AS NhanVienTrangThai
+             FROM TaiKhoan tk
+             INNER JOIN NhanVien nv ON nv.MaNV = tk.MaNV
+             WHERE tk.TenDangNhap = @username`,
             { username }
         );
         
@@ -69,6 +73,9 @@ async function login(username, password) {
         // Check if account is locked
         if (user.TrangThai === 'Khoa') {
             return { success: false, message: 'Tài khoản đã bị khóa' };
+        }
+        if (user.NhanVienTrangThai !== 'DangLam') {
+            return { success: false, message: 'Nhân viên không còn hoạt động' };
         }
         
         // Check if account is locked due to failed attempts
@@ -138,6 +145,7 @@ async function login(username, password) {
                     username: user.TenDangNhap,
                     role: user.VaiTro,
                     maNV: user.MaNV,
+                    mustChangePassword: Boolean(user.MustChangePassword),
                     employee: employee ? {
                         maNV: employee.MaNV,
                         tenNV: employee.TenNV,
@@ -202,6 +210,14 @@ async function getUserInfo(maNV) {
  */
 async function changePassword(username, currentPassword, newPassword) {
     try {
+        const passwordError = validatePassword(newPassword);
+        if (passwordError) {
+            return { success: false, message: passwordError };
+        }
+        if (newPassword === currentPassword) {
+            return { success: false, message: 'Mật khẩu mới phải khác mật khẩu hiện tại' };
+        }
+
         // Get current password hash
         const result = await db.query(
             'SELECT MatKhauHash FROM TaiKhoan WHERE TenDangNhap = @username',
@@ -228,6 +244,7 @@ async function changePassword(username, currentPassword, newPassword) {
         await db.query(
             `UPDATE TaiKhoan
              SET MatKhauHash = @newHash,
+                 MustChangePassword = 0,
                  TokenVersion = ISNULL(TokenVersion, 1) + 1,
                  UpdatedAt = GETDATE()
              WHERE TenDangNhap = @username`,

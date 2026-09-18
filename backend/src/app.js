@@ -30,11 +30,25 @@ app.use(helmet({
       'style-src': ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
       'img-src': ["'self'", 'data:', 'https:'],
       'font-src': ["'self'", 'data:', 'https://unpkg.com'],
-      'connect-src': ["'self'", 'https://unpkg.com']
+      'connect-src': ["'self'", 'https://unpkg.com'],
+      // Cho phép nhúng vào iframe trên FE dev server (localhost)
+      // 'frame-ancestors' KHÔNG có useDefaults — phải set thủ công
+      'frame-ancestors': [
+        "'self'",
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        'http://localhost:4444',
+        'http://127.0.0.1:4444',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000'
+      ]
     }
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  // Tắt X-Frame-Options mặc định của Helmet — đã có CSP frame-ancestors rồi
+  frameguard: false
 }));
 
 // CORS - cho phép FE dev server
@@ -74,7 +88,9 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 // Redirect tiện: /docs -> /api/docs (ai gõ thiếu /api vẫn vào được)
+// và /api-docs -> /api/docs (ai gõ dấu gạch ngang vẫn vào được)
 app.get('/docs', (req, res) => res.redirect('/api/docs'));
+app.get('/api-docs', (req, res) => res.redirect('/api/docs'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -122,6 +138,8 @@ const hoaDonRouter = require('./modules/banHang/hoaDon.routes');
 const phieuChiRouter = require('./modules/phieuChi/phieuChi.routes');
 const phieuThuRouter = require('./modules/phieuThu/phieuThu.routes');
 const thongKeRouter = require('./modules/thongKe/thongKe.routes');
+const auditLogRouter = require('./modules/auditLog/auditLog.routes');
+const systemConfigRouter = require('./modules/systemConfig/systemConfig.routes');
 
 // ========== API Routes (Phase 2) ==========
 app.use('/api/auth', authRouter);
@@ -155,6 +173,10 @@ app.use('/api/phieu-thu', phieuThuRouter);
 
 // ========== API Routes (Phase 3H - Thống kê) ==========
 app.use('/api/thong-ke', thongKeRouter);
+
+// ========== Admin Routes ==========
+app.use('/api/audit-log', auditLogRouter);
+app.use('/api/system-config', systemConfigRouter);
 
 // Error handlers
 app.use(notFoundHandler);

@@ -16,6 +16,7 @@
 const bcrypt = require('bcrypt');
 const db = require('../../config/db');
 const { parsePagination } = require('../../utils/pagination');
+const { generateTempPassword, validatePassword } = require('../../utils/password');
 
 const SALT_ROUNDS = 10;
 
@@ -33,36 +34,6 @@ function slugifyTenNV(tenNV) {
         .filter(Boolean)
         .map((w) => w.toLowerCase())
         .join('.');
-}
-
-// Sinh password ngẫu nhiên 12 ký tự (đủ chữ hoa/thường/số/đặc biệt), đảm bảo đạt policy
-function generateTempPassword() {
-    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const lower = 'abcdefghjkmnpqrstuvwxyz';
-    const digits = '23456789';
-    const special = '@#$%&*!';
-    // Đảm bảo mỗi loại xuất hiện ≥ 1
-    const all = upper + lower + digits + special;
-    let pwd = '';
-    pwd += upper[Math.floor(Math.random() * upper.length)];
-    pwd += lower[Math.floor(Math.random() * lower.length)];
-    pwd += digits[Math.floor(Math.random() * digits.length)];
-    pwd += special[Math.floor(Math.random() * special.length)];
-    for (let i = 0; i < 8; i++) {
-        pwd += all[Math.floor(Math.random() * all.length)];
-    }
-    // Shuffle
-    return pwd.split('').sort(() => Math.random() - 0.5).join('');
-}
-
-function validatePassword(password) {
-    if (!password || typeof password !== 'string') return 'Mật khẩu không được để trống';
-    if (password.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự';
-    if (!/[a-z]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ thường';
-    if (!/[A-Z]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ hoa';
-    if (!/[0-9]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ số';
-    if (!/[^A-Za-z0-9]/.test(password)) return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt';
-    return null;
 }
 
 function validateVaiTro(vaiTro) {
@@ -439,9 +410,9 @@ async function createWithAccount(nvData, tkData) {
         reqTK.input('trangThai', db.sql.NVarChar, trangThaiTK);
         reqTK.input('maNV', db.sql.Int, maNV);
         const insertTKR = await reqTK.query(`
-            INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV)
-            OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.CreatedAt
-            VALUES (@tenDangNhap, @matKhauHash, @vaiTro, @trangThai, @maNV)
+            INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV, MustChangePassword)
+            OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.MustChangePassword, INSERTED.CreatedAt
+            VALUES (@tenDangNhap, @matKhauHash, @vaiTro, @trangThai, @maNV, 1)
         `);
         const taiKhoan = insertTKR.recordset[0];
 
@@ -515,9 +486,9 @@ async function createAccountForExisting(maNV, tkData) {
 
     const matKhauHash = await bcrypt.hash(matKhau, SALT_ROUNDS);
     const insertR = await db.query(`
-        INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV)
-        OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.CreatedAt
-        VALUES (@tenDangNhap, @matKhauHash, @vaiTro, @trangThai, @maNV)
+        INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, VaiTro, TrangThai, MaNV, MustChangePassword)
+        OUTPUT INSERTED.TenDangNhap, INSERTED.VaiTro, INSERTED.TrangThai, INSERTED.MaNV, INSERTED.MustChangePassword, INSERTED.CreatedAt
+        VALUES (@tenDangNhap, @matKhauHash, @vaiTro, @trangThai, @maNV, 1)
     `, {
         tenDangNhap,
         matKhauHash,
@@ -594,6 +565,9 @@ async function resetPassword(maNV, matKhauMoi) {
     await db.query(`
         UPDATE TaiKhoan
         SET MatKhauHash = @matKhauHash,
+            MustChangePassword = 1,
+            LoginFailCount = 0,
+            LockUntil = NULL,
             TokenVersion = ISNULL(TokenVersion, 1) + 1,
             UpdatedAt = GETDATE()
         WHERE MaNV = @maNV

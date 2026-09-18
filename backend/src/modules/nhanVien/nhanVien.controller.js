@@ -133,13 +133,15 @@ const remove = asyncHandler(async (req, res) => {
  */
 const createAccount = asyncHandler(async (req, res) => {
     const maNV = parseInt(req.params.id, 10);
-    const { tenDangNhap, matKhau, vaiTro, trangThai } = req.body || {};
+    const { tenDangNhap, matKhau, vaiTro, trangThai, autoUsername, autoPassword } = req.body || {};
     try {
         const result = await nvService.createAccountForExisting(maNV, {
             tenDangNhap,
             matKhau,
             vaiTro,
             trangThai,
+            autoUsername,
+            autoPassword,
         });
         return created(res, result, 'Cấp tài khoản cho nhân viên thành công');
     } catch (err) {
@@ -178,6 +180,9 @@ const updateAccount = asyncHandler(async (req, res) => {
 const resetPassword = asyncHandler(async (req, res) => {
     const maNV = parseInt(req.params.id, 10);
     const { matKhauMoi } = req.body || {};
+    if (req.user && req.user.maNV === maNV) {
+        return error(res, 'Không thể reset mật khẩu của chính mình. Hãy dùng chức năng đổi mật khẩu.', 400);
+    }
     try {
         const result = await nvService.resetPassword(maNV, matKhauMoi);
         return success(res, result, 'Reset mật khẩu thành công');

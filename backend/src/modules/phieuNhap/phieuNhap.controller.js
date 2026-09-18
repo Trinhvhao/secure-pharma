@@ -27,6 +27,10 @@ async function validateFK(maNCC, chiTiet) {
     }
 
     for (const ct of chiTiet) {
+        // Validate maThuoc is present and valid
+        if (ct.maThuoc === undefined || ct.maThuoc === null) {
+            return `Lô #${chiTiet.indexOf(ct) + 1}: mã thuốc bị thiếu`;
+        }
         const tR = await db.query(
             'SELECT MaThuoc FROM Thuoc WHERE MaThuoc = @maThuoc',
             { maThuoc: ct.maThuoc }
@@ -63,11 +67,14 @@ const create = asyncHandler(async (req, res) => {
     for (let i = 0; i < chiTiet.length; i++) {
         const ct = chiTiet[i];
 
-        // 3a. Strict check maThuoc la so nguyen
+        // 3a. Strict check maThuoc la so nguyen duong
+        // Chu y: Number("") = 0, can catch truoc khi isNaN()
+        if (ct.maThuoc === undefined || ct.maThuoc === null || ct.maThuoc === '') {
+            return error(res, `Lô #${i + 1}: chưa chọn thuốc`, 400);
+        }
         const maThuocInt = parseInt(ct.maThuoc, 10);
-        if (ct.maThuoc === undefined || ct.maThuoc === null || ct.maThuoc === '' ||
-            isNaN(maThuocInt) || String(maThuocInt) !== String(ct.maThuoc).trim()) {
-            return error(res, `Lô #${i + 1}: mã thuốc phải là số nguyên`, 400);
+        if (isNaN(maThuocInt) || maThuocInt <= 0 || String(maThuocInt) !== String(ct.maThuoc).trim()) {
+            return error(res, `Lô #${i + 1}: mã thuốc phải là số nguyên dương`, 400);
         }
         ct.maThuoc = maThuocInt; // normalize
 
