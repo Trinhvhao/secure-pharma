@@ -19,14 +19,17 @@ async function startServer() {
         }
         
         // Start Express server
+        const host = `http://localhost:${PORT}`;
         app.listen(PORT, () => {
             console.log('');
             console.log('╔══════════════════════════════════════════════════════════════╗');
             console.log('║           SecurePharma Backend Server                      ║');
             console.log('╠══════════════════════════════════════════════════════════════╣');
-            console.log(`║  🌐 Server running on: http://localhost:${PORT}                ║`);
-            console.log(`║  📊 Health check:      http://localhost:${PORT}/api/health     ║`);
-            console.log(`║  🔧 Environment:       ${(process.env.NODE_ENV || 'development').padEnd(20)}      ║`);
+            console.log(`║  🌐 Server running on: ${host.padEnd(38)}║`);
+            console.log(`║  📊 Health check:      ${(host + '/api/health').padEnd(38)}║`);
+            console.log(`║  📖 API Docs (Swagger): ${(host + '/api/docs').padEnd(36)}║`);
+            console.log(`║  📄 OpenAPI JSON spec:  ${(host + '/api/docs.json').padEnd(35)}║`);
+            console.log(`║  🔧 Environment:       ${(process.env.NODE_ENV || 'development').padEnd(28)}║`);
             console.log('╚══════════════════════════════════════════════════════════════╝');
             console.log('');
         });

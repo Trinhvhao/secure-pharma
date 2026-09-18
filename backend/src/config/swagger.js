@@ -24,7 +24,10 @@ const options = {
         '**Auth:** Bearer JWT trong header `Authorization`. Refresh token dùng endpoint `/api/auth/refresh`.'
     },
     servers: [
-      { url: 'http://localhost:5000', description: 'Development (local)' }
+      // Server mặc định hiển thị trong Swagger UI = port BE đang chạy (PORT env, mặc định 8080).
+      // Giữ nguyên URL người dùng nhập — KHÔNG ép redirect về 8080/5000.
+      { url: '/', description: 'Same origin (khuyến nghị — dùng URL trên thanh trình duyệt)' },
+      { url: 'http://localhost:8080', description: 'Development (local, port mặc định)' }
     ],
     components: {
       securitySchemes: {

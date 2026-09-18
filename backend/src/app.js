@@ -96,8 +96,13 @@ app.get('/api', (req, res) => {
         data: {
             name: 'SecurePharma API',
             version: '1.0.0',
-            phase: '1 - Foundation',
-            description: 'Quản lý cửa hàng dược phẩm'
+            phase: '3H',
+            description: 'Quản lý cửa hàng dược phẩm',
+            endpoints: {
+                health: `/api/health`,
+                docs: `/api/docs`,
+                openApiSpec: `/api/docs.json`
+            }
         },
         message: 'Welcome to SecurePharma API'
     });
