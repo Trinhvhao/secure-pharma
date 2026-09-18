@@ -1,16 +1,33 @@
 /**
  * API Docs Page — iframe trỏ vào Swagger UI của backend
  *
- * URL backend lấy từ VITE_API_URL (đã cấu hình trong axiosClient.js).
- * Endpoint Swagger: `${VITE_API_URL}/docs`.
- * Trang này KHÔNG fetch dữ liệu — chỉ render iframe fullscreen.
+ * Lưu ý quan trọng về iframe + proxy:
+ *  - Axios gọi `/api/*` qua Vite proxy (vite.config.js) nên base URL = '/api'.
+ *  - NHƯNG iframe không đi qua proxy: browser fetch thẳng URL trong src.
+ *  - Vì vậy PHẢI trỏ thẳng về BE origin, không dùng '/api/docs'.
+ *  - Ưu tiên VITE_API_DOCS_URL (full URL backend) > VITE_API_URL > fallback http://localhost:8080.
+ *
+ *  Port mặc định của backend là 8080 (xem backend/.env.example → PORT=8080).
+ *  Đổi port khác: tạo frontend/.env với VITE_API_DOCS_URL=http://localhost:<port>
+ *    hoặc VITE_API_URL=http://localhost:<port>.
  */
 import { useMemo } from 'react';
 
+function resolveDocsUrl() {
+  // Ưu tiên 1: VITE_API_DOCS_URL — URL đầy đủ tới swagger (vd: http://localhost:8080/api/docs)
+  const explicit = import.meta.env.VITE_API_DOCS_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+
+  // Ưu tiên 2: VITE_API_URL — base URL backend, tự ghép /api/docs
+  const base = import.meta.env.VITE_API_URL;
+  if (base) return `${base.replace(/\/$/, '')}/api/docs`;
+
+  // Fallback: phải khớp với backend/.env PORT (mặc định 8080)
+  return 'http://localhost:8080/api/docs';
+}
+
 export default function ApiDocsPage() {
-  // Đọc base URL từ env (Vite inject VITE_*); fallback localhost:5000
-  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  const docsUrl = useMemo(() => `${apiBase.replace(/\/$/, '')}/api/docs`, [apiBase]);
+  const docsUrl = useMemo(resolveDocsUrl, []);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-50">
@@ -19,6 +36,9 @@ export default function ApiDocsPage() {
           <h1 className="text-lg font-semibold text-slate-800">Tài liệu API (Swagger)</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Danh sách endpoint backend — phát sinh tự động từ JSDoc trong từng file route.
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5 font-mono">
+            {docsUrl}
           </p>
         </div>
         <a
