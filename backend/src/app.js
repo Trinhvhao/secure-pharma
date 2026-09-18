@@ -19,7 +19,23 @@ const { writeLimiter } = require('./middleware/rateLimit');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+// Lưu ý: PHẢI allow tài nguyên tĩnh của swagger-ui (script/style từ unpkg.com + fonts),
+// nếu không swagger UI sẽ load bị trắng trang (CSP frame-ancestors + script-src chặn inline).
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+      'style-src': ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+      'img-src': ["'self'", 'data:', 'https:'],
+      'font-src': ["'self'", 'data:', 'https://unpkg.com'],
+      'connect-src': ["'self'", 'https://unpkg.com']
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // CORS - cho phép FE dev server
 app.use(cors({
@@ -40,10 +56,25 @@ app.use(xssSanitize);
 // Mount thủ công ở đây (không qua helmet chặn / tài nguyên tĩnh swagger-ui)
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
+
+// OpenAPI JSON spec — để Swagger Hub / Postman import cũng được
+app.get('/api/docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'SecurePharma API Docs',
-    customCss: '.swagger-ui .topbar { display: none }' // ẩn thanh topbar mặc định
+  customSiteTitle: 'SecurePharma API Docs',
+  customCss: '.swagger-ui .topbar { display: none }', // ẩn thanh topbar mặc định
+  swaggerOptions: {
+    persistAuthorization: true, // giữ Bearer JWT sau khi "Authorize"
+    displayRequestDuration: true,
+    docExpansion: 'none' // gọn giao diện, click để mở rộng từng tag
+  }
 }));
+
+// Redirect tiện: /docs -> /api/docs (ai gõ thiếu /api vẫn vào được)
+app.get('/docs', (req, res) => res.redirect('/api/docs'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

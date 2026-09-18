@@ -6,12 +6,16 @@
  *  GET  /api/nhan-vien/stats         - Thống kê tổng quan
  *  GET  /api/nhan-vien/:id           - Chi tiết + stats aggregate
  *  GET  /api/nhan-vien/:id/hoa-don   - Lịch sử hóa đơn đã thanh toán
- *  POST /api/nhan-vien                - Tạo (Admin only)
+ *  GET  /api/nhan-vien/:id/phieu-nhap - Lịch sử phiếu nhập
+ *  POST /api/nhan-vien                - Tạo (Admin only) — hỗ trợ tạo kèm tài khoản (body.taiKhoan)
  *  PUT  /api/nhan-vien/:id            - Cập nhật (Admin only)
  *  DELETE /api/nhan-vien/:id          - Xóa (Admin only)
+ *  POST /api/nhan-vien/:id/tai-khoan  - Cấp tài khoản cho NV chưa có (Admin only)
+ *  PATCH /api/nhan-vien/:id/tai-khoan - Đổi vai trò / khóa tài khoản (Admin only)
+ *  POST /api/nhan-vien/:id/reset-mat-khau - Admin reset mật khẩu NV
  */
 const nvService = require('./nhanVien.service');
-const { success, created, notFound, error, successPaginated } = require('../../utils/response');
+const { success, created, notFound, error, conflict, successPaginated } = require('../../utils/response');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
 const getAll = asyncHandler(async (req, res) => {
@@ -52,12 +56,26 @@ const getPhieuNhapByNV = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-    const { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai } = req.body;
+    const { tenNV, sdt, gioiTinh, luong, ngayVaoLam, trangThai, taiKhoan } = req.body;
     if (!tenNV) return error(res, 'Vui lòng nhập tên nhân viên', 400);
 
     const luongNum = Number(luong);
     if (luong !== undefined && luong !== null && luong !== '' && (isNaN(luongNum) || luongNum < 0)) {
         return error(res, 'Lương phải ≥ 0', 400);
+    }
+
+    // Nếu payload có taiKhoan → tạo NV + cấp tài khoản trong 1 transaction.
+    if (taiKhoan) {
+        try {
+            const result = await nvService.createWithAccount(
+                { tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null, luong: isNaN(luongNum) ? 0 : luongNum, ngayVaoLam: ngayVaoLam || null, trangThai: trangThai || 'DangLam' },
+                taiKhoan
+            );
+            return created(res, result, 'Tạo nhân viên và cấp tài khoản thành công');
+        } catch (err) {
+            if (err.statusCode) return error(res, err.message, err.statusCode);
+            throw err;
+        }
     }
 
     const item = await nvService.create({ tenNV, sdt: sdt || null, gioiTinh: gioiTinh || null, luong: isNaN(luongNum) ? 0 : luongNum, ngayVaoLam: ngayVaoLam || null, trangThai: trangThai || 'DangLam' });
@@ -96,4 +114,77 @@ const remove = asyncHandler(async (req, res) => {
     return success(res, null, 'Xóa nhân viên thành công');
 });
 
-module.exports = { getAll, getStats, getById, getHoaDonByNV, getPhieuNhapByNV, create, update, remove };
+/**
+ * POST /api/nhan-vien/:id/tai-khoan
+ * Cấp tài khoản cho nhân viên đã tồn tại nhưng chưa có TK.
+ * Body: { tenDangNhap, matKhau, vaiTro, trangThai? }
+ */
+const createAccount = asyncHandler(async (req, res) => {
+    const maNV = parseInt(req.params.id, 10);
+    const { tenDangNhap, matKhau, vaiTro, trangThai } = req.body || {};
+    try {
+        const result = await nvService.createAccountForExisting(maNV, {
+            tenDangNhap,
+            matKhau,
+            vaiTro,
+            trangThai,
+        });
+        return created(res, result, 'Cấp tài khoản cho nhân viên thành công');
+    } catch (err) {
+        if (err.statusCode) return error(res, err.message, err.statusCode);
+        throw err;
+    }
+});
+
+/**
+ * PATCH /api/nhan-vien/:id/tai-khoan
+ * Đổi vai trò / khóa/mở khóa tài khoản.
+ * Body: { vaiTro?, trangThai? }
+ */
+const updateAccount = asyncHandler(async (req, res) => {
+    const maNV = parseInt(req.params.id, 10);
+    const { vaiTro, trangThai } = req.body || {};
+
+    // Không cho Admin tự đổi vai trò / khóa chính mình
+    if (req.user && req.user.maNV === maNV) {
+        return error(res, 'Không thể thay đổi tài khoản của chính mình', 400);
+    }
+
+    try {
+        const result = await nvService.updateAccount(maNV, { vaiTro, trangThai });
+        return success(res, result, 'Cập nhật tài khoản thành công');
+    } catch (err) {
+        if (err.statusCode) return error(res, err.message, err.statusCode);
+        throw err;
+    }
+});
+
+/**
+ * POST /api/nhan-vien/:id/reset-mat-khau
+ * Admin reset mật khẩu cho NV. Trả về mật khẩu tạm (NV phải đổi lại ở lần đăng nhập kế tiếp).
+ */
+const resetPassword = asyncHandler(async (req, res) => {
+    const maNV = parseInt(req.params.id, 10);
+    const { matKhauMoi } = req.body || {};
+    try {
+        const result = await nvService.resetPassword(maNV, matKhauMoi);
+        return success(res, result, 'Reset mật khẩu thành công');
+    } catch (err) {
+        if (err.statusCode) return error(res, err.message, err.statusCode);
+        throw err;
+    }
+});
+
+module.exports = {
+    getAll,
+    getStats,
+    getById,
+    getHoaDonByNV,
+    getPhieuNhapByNV,
+    create,
+    update,
+    remove,
+    createAccount,
+    updateAccount,
+    resetPassword,
+};

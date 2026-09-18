@@ -126,13 +126,34 @@ async function getAll({ keyword = '', maDM = null, page = 1, limit = 10, trangTh
     };
 
     // ── ORDER BY ────────────────────────────────────────────────
+    // Lưu ý: không tham chiếu alias từ SELECT (TonKho/HanSDGanNhat) vì
+    // MSSQL từ chối khi alias dẫn xuất từ subquery scalar + OFFSET/FETCH.
+    // Phải viết lại biểu thức tương đương trong ORDER BY.
+    const stockSubqueryForOrder = `ISNULL((
+        SELECT SUM(l.SoLuongTonKho)
+        FROM LoThuoc_ChiTietNhap l
+        INNER JOIN PhieuNhap pn ON l.MaPN = pn.MaPN
+        WHERE l.MaThuoc = t.MaThuoc
+          AND l.SoLuongTonKho > 0
+          AND l.HanSD > GETDATE()
+          AND pn.TrangThai = N'DaNhap'
+    ), 0)`;
+    const minHanSDSubqueryForOrder = `(
+        SELECT MIN(l.HanSD)
+        FROM LoThuoc_ChiTietNhap l
+        INNER JOIN PhieuNhap pn ON l.MaPN = pn.MaPN
+        WHERE l.MaThuoc = t.MaThuoc
+          AND l.SoLuongTonKho > 0
+          AND l.HanSD > GETDATE()
+          AND pn.TrangThai = N'DaNhap'
+    )`;
     const sortMap = {
         ten_asc: 't.TenThuoc ASC',
         ten_desc: 't.TenThuoc DESC',
         gia_asc: 't.GiaBanThamKhao ASC',
         gia_desc: 't.GiaBanThamKhao DESC',
-        ton_desc: 'TonKho DESC',
-        hsd_asc: 'MinHanSD ASC',
+        ton_desc: `${stockSubqueryForOrder} DESC`,
+        hsd_asc: `${minHanSDSubqueryForOrder} ASC`,
         ma_desc: keyword ? 'RankScore DESC, t.MaThuoc DESC' : 't.MaThuoc DESC',
     };
     const orderBy = sortMap[sort] || sortMap.ma_desc;

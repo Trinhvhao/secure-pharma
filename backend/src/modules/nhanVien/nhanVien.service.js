@@ -1,16 +1,77 @@
 /**
- * NhanVien Service - CRUD + Stats + Lịch sử hoạt động
+ * NhanVien Service - CRUD + Stats + Lịch sử hoạt động + Quản lý tài khoản
  *
  * Nghiệp vụ:
  *  - CRUD cơ bản (TenNV, SDT, GioiTinh, Luong, NgayVaoLam, TrangThai)
  *  - Stats: tổng NV, đang làm, có tài khoản, mới trong 30 ngày
  *  - getById kèm stats: số HĐ, số PN, số Phiếu chi, tổng tiền bán
  *  - getHoaDonByNV: lịch sử hóa đơn đã thanh toán (max 10)
+ *  - createWithAccount: tạo NV + cấp tài khoản (username/password/vaiTro) trong 1 transaction
+ *  - createAccountForExisting: cấp tài khoản cho NV đã tồn tại (chưa có TK)
+ *  - updateAccount: đổi vai trò / trạng thái (HoatDong/Khoa) tài khoản
+ *  - resetPassword: Admin reset pass cho NV (sinh password tạm, NV đổi lại ở lần đăng nhập đầu)
  *
  * Admin-only module.
  */
+const bcrypt = require('bcrypt');
 const db = require('../../config/db');
 const { parsePagination } = require('../../utils/pagination');
+
+const SALT_ROUNDS = 10;
+
+// Pattern sinh username mặc định từ tên nhân viên: bỏ dấu + chữ thường + nối bằng dấu .
+// VD: "Nguyễn Văn An" → "nguyen.van.an"; "Lê Thị Lan" → "le.thi.lan"
+function slugifyTenNV(tenNV) {
+    if (!tenNV) return '';
+    return tenNV
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // bỏ dấu
+        .replace(/đ/gi, 'd')
+        .replace(/[^a-zA-Z0-9.\s]/g, '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w.toLowerCase())
+        .join('.');
+}
+
+// Sinh password ngẫu nhiên 12 ký tự (đủ chữ hoa/thường/số/đặc biệt), đảm bảo đạt policy
+function generateTempPassword() {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghjkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const special = '@#$%&*!';
+    // Đảm bảo mỗi loại xuất hiện ≥ 1
+    const all = upper + lower + digits + special;
+    let pwd = '';
+    pwd += upper[Math.floor(Math.random() * upper.length)];
+    pwd += lower[Math.floor(Math.random() * lower.length)];
+    pwd += digits[Math.floor(Math.random() * digits.length)];
+    pwd += special[Math.floor(Math.random() * special.length)];
+    for (let i = 0; i < 8; i++) {
+        pwd += all[Math.floor(Math.random() * all.length)];
+    }
+    // Shuffle
+    return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+function validatePassword(password) {
+    if (!password || typeof password !== 'string') return 'Mật khẩu không được để trống';
+    if (password.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự';
+    if (!/[a-z]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ thường';
+    if (!/[A-Z]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ hoa';
+    if (!/[0-9]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ số';
+    if (!/[^A-Za-z0-9]/.test(password)) return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt';
+    return null;
+}
+
+function validateVaiTro(vaiTro) {
+    const allowed = ['Admin', 'NV_BanHang', 'NV_Kho'];
+    if (!allowed.includes(vaiTro)) {
+        return `Vai trò không hợp lệ. Chỉ chấp nhận: ${allowed.join(', ')}`;
+    }
+    return null;
+}
 
 async function getAll({ keyword = '', page = 1, limit = 10, vaiTro = '', trangThai = '' } = {}) {
     const { page: safePage, limit: safeLimit, offset } = parsePagination(page, limit);
