@@ -8,7 +8,7 @@ const saleSource = fs.readFileSync(
     'utf8'
 );
 const migrationSource = fs.readFileSync(
-    path.join(__dirname, '../database/14_patch_phieu_thu.sql'),
+    path.join(__dirname, '../database/07_vouchers.sql'),
     'utf8'
 );
 
@@ -22,5 +22,5 @@ test('sale receipt is inserted before the invoice transaction commits', () => {
 test('each invoice can have at most one linked receipt and backfill is idempotent', () => {
     assert.match(migrationSource, /CREATE UNIQUE INDEX UX_PhieuThu_MaHD/);
     assert.match(migrationSource, /WHERE MaHD IS NOT NULL/);
-    assert.match(migrationSource, /NOT EXISTS \(SELECT 1 FROM PhieuThu pt WHERE pt\.MaHD = hd\.MaHD\)/);
+    assert.match(migrationSource, /NOT EXISTS\s*\(\s*SELECT 1 FROM PhieuThu pt WHERE pt\.MaHD = hd\.MaHD/);
 });
