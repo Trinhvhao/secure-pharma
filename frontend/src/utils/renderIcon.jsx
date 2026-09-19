@@ -18,16 +18,21 @@
  * @param {number} [defaultSize=20]
  * @returns {React.ReactNode|null}
  */
+import { isValidElement } from 'react';
+
 export function renderIcon(icon, defaultSize = 20) {
     if (!icon) return null;
 
-    // Đã là JSX element (có $$typeof) → trả nguyên
-    if (typeof icon === 'object' && icon !== null && '$$typeof' in icon) {
+    // Chỉ React element đã được khởi tạo mới được render trực tiếp.
+    if (isValidElement(icon)) {
         return icon;
     }
 
-    // Là function/class component → wrap với size mặc định
-    if (typeof icon === 'function') {
+    // Function/class và forwardRef/memo đều là component type hợp lệ.
+    if (
+        typeof icon === 'function'
+        || (typeof icon === 'object' && icon !== null && '$$typeof' in icon)
+    ) {
         const IconComponent = icon;
         return <IconComponent size={defaultSize} aria-hidden="true" />;
     }

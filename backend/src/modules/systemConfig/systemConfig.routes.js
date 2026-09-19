@@ -12,6 +12,7 @@
  */
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../../middleware/auth');
 const { requireRole } = require('../../middleware/rbac');
 const ctrl = require('./systemConfig.controller');
 
@@ -29,7 +30,7 @@ const ctrl = require('./systemConfig.controller');
  *       403:
  *         description: Khong co quyen
  */
-router.use(requireRole('Admin'));
+router.use(authenticate, requireRole('Admin'));
 
 router.get('/', ctrl.getAll);
 

@@ -12,6 +12,7 @@
  */
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../../middleware/auth');
 const { requireRole } = require('../../middleware/rbac');
 const ctrl = require('./auditLog.controller');
 
@@ -70,7 +71,7 @@ const ctrl = require('./auditLog.controller');
  *       403:
  *         description: Khong co quyen Admin
  */
-router.use(requireRole('Admin'));
+router.use(authenticate, requireRole('Admin'));
 
 router.get('/', ctrl.getAuditLogs);
 
