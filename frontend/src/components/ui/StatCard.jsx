@@ -12,6 +12,7 @@
  */
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { renderIcon } from '../../utils/renderIcon';
 
 const COLOR_CLASSES = {
   primary: 'bg-primary-50 text-primary-600',
@@ -47,7 +48,7 @@ export default function StatCard({
           )}
           aria-hidden="true"
         >
-          {icon}
+          {renderIcon(icon)}
         </div>
         {trend && (
           <div

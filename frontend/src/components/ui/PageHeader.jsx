@@ -7,6 +7,7 @@
  *   </PageHeader>
  */
 import { cn } from '../../utils/cn';
+import { renderIcon } from '../../utils/renderIcon';
 
 export default function PageHeader({ icon, title, subtitle, actions, className }) {
   return (
@@ -21,7 +22,7 @@ export default function PageHeader({ icon, title, subtitle, actions, className }
             )}
             aria-hidden="true"
           >
-            {icon}
+            {renderIcon(icon)}
           </div>
         )}
         <div className="min-w-0">

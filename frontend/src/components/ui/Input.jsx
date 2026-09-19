@@ -7,6 +7,7 @@
  */
 import { forwardRef, useId } from 'react';
 import { cn } from '../../utils/cn';
+import { renderIcon } from '../../utils/renderIcon';
 
 const Input = forwardRef(function Input(
   {
@@ -42,7 +43,7 @@ const Input = forwardRef(function Input(
       <div className="relative">
         {icon && (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
-            {icon}
+            {renderIcon(icon, 18)}
           </span>
         )}
 
@@ -70,7 +71,7 @@ const Input = forwardRef(function Input(
 
         {iconRight && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
-            {iconRight}
+            {renderIcon(iconRight, 18)}
           </span>
         )}
       </div>
