@@ -25,6 +25,7 @@ import ExpiryBadge from '../../components/ui/ExpiryBadge';
 import { DEFAULT_PAGE_SIZE } from '../../utils/constants';
 import { formatCurrency } from '../../utils/format';
 import { downloadInvoiceHtml, printInvoice } from './invoiceDocument';
+import { exportInvoicePdf } from './invoicePdf';
 
 const STATUS_VARIANT = { DaThanhToan: 'success', DaHuy: 'danger' };
 const STATUS_LABEL = { DaThanhToan: 'Đã thanh toán', DaHuy: 'Đã hủy' };
@@ -123,6 +124,21 @@ function HoaDonListPage() {
   const handlePrint = () => {
     if (!printInvoice(viewItem)) {
       toast.error('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép pop-up và thử lại.');
+    }
+  };
+
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const handleExportPdf = async () => {
+    if (!viewItem || exportingPdf) return;
+    setExportingPdf(true);
+    const toastId = toast.loading('Đang tạo file PDF...');
+    try {
+      await exportInvoicePdf(viewItem);
+      toast.success(`Đã tải hóa đơn #${viewItem.MaHD}.pdf`, { id: toastId });
+    } catch {
+      toast.error('Không thể tạo PDF, đã mở cửa sổ in thay thế.', { id: toastId });
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -365,7 +381,15 @@ function HoaDonListPage() {
                 Tải HTML
               </Button>
               <Button variant="primary" icon={<Printer />} onClick={handlePrint}>
-                In / Lưu PDF
+                In
+              </Button>
+              <Button
+                variant="success"
+                icon={<Download />}
+                onClick={handleExportPdf}
+                loading={exportingPdf}
+              >
+                {exportingPdf ? 'Đang tạo PDF...' : 'Tải PDF'}
               </Button>
               {viewItem.TrangThai === 'DaThanhToan' && (
                 <RoleGuard roles={['Admin']}>

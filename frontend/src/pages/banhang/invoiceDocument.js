@@ -6,10 +6,20 @@ const escapeHtml = (value) => String(value ?? '')
   .replaceAll("'", '&#039;');
 
 const money = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value) || 0)} ₫`;
-const dateTime = (value) => new Intl.DateTimeFormat('vi-VN', {
-  dateStyle: 'short',
-  timeStyle: 'short',
-}).format(new Date(value));
+const vietnamDateTime = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const dateTime = (value) => {
+  const parts = vietnamDateTime.formatToParts(new Date(value));
+  const byType = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]));
+  return `${byType.day}/${byType.month}/${byType.year} ${byType.hour}:${byType.minute}`;
+};
 
 export function buildInvoiceHtml(invoice) {
   const rows = (invoice.ChiTiet || []).map((item, index) => `

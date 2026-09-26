@@ -21,6 +21,15 @@ const thongKeService = {
     return res.data;
   },
 
+  /** Danh sách hóa đơn chi tiết trong kỳ (phân trang) — dùng cho tab Thống kê */
+  getHoaDonList: async ({ from, to, page = 1, limit = 20 } = {}) => {
+    const params = { page, limit };
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const res = await api.get('/thong-ke/hoa-don/list', { params });
+    return res.data;
+  },
+
   getTaiChinh: async ({ from, to } = {}) => {
     const params = {};
     if (from) params.from = from;

@@ -7,8 +7,8 @@
  *  - Fill ngày trống = 0 (chart đỡ giật khi có ngày không có HĐ)
  *  - 8 stat cards + 2 biểu đồ (LineChart doanh thu + BarChart top thuốc)
  */
-import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import {
@@ -40,17 +40,33 @@ import Table from '../../components/ui/Table';
 import LoadingState from '../../components/ui/LoadingState';
 import DateRangePresets from '../../components/common/DateRangePresets';
 import DeltaIndicator from '../../components/common/DeltaIndicator';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 import ReportExportActions from '../../components/common/ReportExportActions';
 
 const todayStr = () => dayjs().format('YYYY-MM-DD');
 const monthAgoStr = () => dayjs().subtract(29, 'day').format('YYYY-MM-DD');
 
 function ThongKeHoaDonTab() {
+    const navigate = useNavigate();
+
+    const openInvoiceDetail = useCallback((maHD) => {
+        if (!maHD) return;
+        // Theo convention dự án: chi tiết hóa đơn là modal trong HoaDonListPage
+        // (route /hoa-don), truyền viewId qua location.state.
+        navigate('/hoa-don', { state: { viewId: Number(maHD) } });
+    }, [navigate]);
+
     const [fromDate, setFromDate] = useState(monthAgoStr);
     const [toDate, setToDate] = useState(todayStr);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
+
+    // Danh sách hóa đơn chi tiết trong kỳ (để "xem được hóa đơn" từ Thống kê)
+    const [hoaDonList, setHoaDonList] = useState([]);
+    const [hoaDonTotal, setHoaDonTotal] = useState(0);
+    const [hoaDonPage, setHoaDonPage] = useState(1);
+    const [hoaDonLimit] = useState(20);
+    const [hoaDonLoading, setHoaDonLoading] = useState(false);
 
     const fetchData = async (from, to) => {
         setLoading(true);
@@ -67,8 +83,28 @@ function ThongKeHoaDonTab() {
         }
     };
 
+    const fetchHoaDonList = useCallback(async (from, to, page = 1) => {
+        setHoaDonLoading(true);
+        try {
+            const res = await thongKeService.getHoaDonList({
+                from: from || undefined,
+                to: to || undefined,
+                page,
+                limit: hoaDonLimit,
+            });
+            setHoaDonList(res.data?.items || []);
+            setHoaDonTotal(res.data?.pagination?.total || 0);
+            setHoaDonPage(page);
+        } catch (err) {
+            toast.error(err.response?.data?.error?.message || 'Không thể tải danh sách hóa đơn');
+        } finally {
+            setHoaDonLoading(false);
+        }
+    }, [hoaDonLimit]);
+
     useEffect(() => {
         fetchData(fromDate, toDate);
+        fetchHoaDonList(fromDate, toDate, 1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -76,6 +112,7 @@ function ThongKeHoaDonTab() {
         setFromDate(from);
         setToDate(to);
         fetchData(from, to);
+        fetchHoaDonList(from, to, 1);
     };
 
     const ss = data?.soSanhKyTruoc;
@@ -234,6 +271,74 @@ function ThongKeHoaDonTab() {
         },
     ];
 
+    // Bảng danh sách hóa đơn trong kỳ (cho phép "xem được hóa đơn" từ Thống kê)
+    const columnsHoaDonList = [
+        {
+            key: 'ngayGioLap',
+            label: 'Ngày lập',
+            width: '160px',
+            render: (it) => (
+                <span className="tabular-nums text-neutral-700">
+                    {formatDate(it.ngayGioLap, 'DD/MM/YYYY HH:mm')}
+                </span>
+            ),
+        },
+        {
+            key: 'tenNV',
+            label: 'Nhân viên',
+            render: (it) => (
+                <span className="text-neutral-700">{it.tenNV}</span>
+            ),
+        },
+        {
+            key: 'tenKH',
+            label: 'Khách hàng',
+            render: (it) => (
+                <span className="text-neutral-700">{it.tenKH}</span>
+            ),
+        },
+        {
+            key: 'trangThai',
+            label: 'Trạng thái',
+            width: '130px',
+            render: (it) => (
+                <span className={`inline-flex rounded-pill px-2 py-0.5 text-caption font-medium ${
+                    it.trangThai === 'DaThanhToan'
+                        ? 'bg-success-100 text-success-700'
+                        : 'bg-danger-100 text-danger-700'
+                }`}>
+                    {it.trangThai === 'DaThanhToan' ? 'Đã thanh toán' : 'Đã hủy'}
+                </span>
+            ),
+        },
+        {
+            key: 'tongTien',
+            label: 'Tổng tiền',
+            width: '150px',
+            align: 'right',
+            render: (it) => (
+                <span className="font-mono font-semibold text-neutral-900">
+                    {formatCurrency(it.tongTien)}
+                </span>
+            ),
+        },
+        {
+            key: 'actions',
+            label: '',
+            width: '120px',
+            align: 'right',
+            render: (it) => (
+                <button
+                    type="button"
+                    onClick={() => openInvoiceDetail(it.maHD)}
+                    className="text-caption text-primary-700 hover:text-primary-600 hover:underline font-medium focus:outline-none focus-visible:underline"
+                >
+                    Xem chi tiết →
+                </button>
+            ),
+        },
+    ];
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Filter */}
@@ -374,15 +479,69 @@ function ThongKeHoaDonTab() {
 
                 <Card title="Chi tiết top thuốc" padding={false}>
                     {data && (
-                        <Table
-                            columns={columnsTopThuoc}
-                            data={data.topThuocBanChay}
-                            rowKey="maThuoc"
-                            emptyTitle="Chưa có dữ liệu"
-                        />
+                        <div
+                            className="xl:max-h-[398px] xl:overflow-y-auto xl:overscroll-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                            role="region"
+                            aria-label="Chi tiết top thuốc bán chạy"
+                            tabIndex={0}
+                        >
+                            <Table
+                                columns={columnsTopThuoc}
+                                data={data.topThuocBanChay}
+                                rowKey="maThuoc"
+                                emptyTitle="Chưa có dữ liệu"
+                            />
+                        </div>
                     )}
                 </Card>
             </div>
+
+            {/* Danh sách hóa đơn trong kỳ */}
+            <Card
+                title={`Danh sách hóa đơn trong kỳ (${hoaDonTotal.toLocaleString('vi-VN')})`}
+                subtitle="Bấm 'Xem chi tiết' để mở hóa đơn đầy đủ"
+                padding={false}
+            >
+                {hoaDonLoading ? (
+                    <LoadingState label="Đang tải danh sách hóa đơn..." />
+                ) : hoaDonList.length === 0 ? (
+                    <div className="flex items-center justify-center h-32 text-neutral-500 text-body">
+                        Chưa có hóa đơn nào trong khoảng thời gian này
+                    </div>
+                ) : (
+                    <>
+                        <Table
+                            columns={columnsHoaDonList}
+                            data={hoaDonList}
+                            rowKey="maHD"
+                            emptyTitle="Chưa có hóa đơn"
+                        />
+                        <div className="flex items-center justify-between px-3 py-3 border-t border-neutral-200">
+                            <span className="text-caption text-neutral-600">
+                                Trang {hoaDonPage} / {Math.max(1, Math.ceil(hoaDonTotal / hoaDonLimit))}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={hoaDonPage <= 1 || hoaDonLoading}
+                                    onClick={() => fetchHoaDonList(fromDate, toDate, hoaDonPage - 1)}
+                                    className="px-3 py-1 text-caption rounded-btn border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    ← Trước
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={hoaDonPage * hoaDonLimit >= hoaDonTotal || hoaDonLoading}
+                                    onClick={() => fetchHoaDonList(fromDate, toDate, hoaDonPage + 1)}
+                                    className="px-3 py-1 text-caption rounded-btn border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    Sau →
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </Card>
         </div>
     );
 }

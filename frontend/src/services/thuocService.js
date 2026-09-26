@@ -27,9 +27,14 @@ const thuocService = {
         return response.data;
     },
 
-    /** Lấy thuốc cùng hoạt chất (sản phẩm thay thế) */
-    getSimilar: async (id, limit = 5) => {
-        const response = await api.get(`/thuoc/${id}/similar`, { params: { limit } });
+    /** Lấy thuốc cùng hoạt chất (sản phẩm thay thế khi thuốc nguồn hết hàng)
+     * @param {number} id - MaThuoc nguồn
+     * @param {Object} opts - { limit?: number = 5, inStockOnly?: boolean = true }
+     */
+    getSimilar: async (id, { limit = 5, inStockOnly = true } = {}) => {
+        const response = await api.get(`/thuoc/${id}/similar`, {
+            params: { limit, inStockOnly },
+        });
         return response.data;
     },
 

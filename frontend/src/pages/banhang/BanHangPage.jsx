@@ -36,6 +36,7 @@ import banHangService from '../../services/banHangService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import PageHeader from '../../components/ui/PageHeader';
+import SuggestedSubstitute from '../../components/common/SuggestedSubstitute';
 import { formatCurrency } from '../../utils/format';
 import { invoiceListNavigationState } from './banHangFlow';
 import CheckoutSuccessModal from './CheckoutSuccessModal';
@@ -244,6 +245,8 @@ function BanHangPage() {
         const tk = Number(stockResponse.data?.tonKho) || 0;
         if (tk <= 0) {
           toast.error(`${thuoc.TenThuoc} hiện đã hết hàng`);
+          // Hiện banner gợi ý thuốc thay thế (đúng nghiệp vụ)
+          await showSubstitutesFor(thuoc);
           return;
         }
         await addToCart(thuoc, tk);
@@ -285,6 +288,12 @@ function BanHangPage() {
 
   // ── Tab view (mobile/responsive) ───────────────────────────
   const [view, setView] = useState('search');
+
+  // ── Gợi ý thuốc thay thế (khi thuốc nguồn hết hàng) ───────
+  // Nghiệp vụ: NV tìm thuốc hết → hiện danh sách thuốc cùng hoạt chất còn hàng.
+  const [outOfStockThuoc, setOutOfStockThuoc] = useState(null);
+  const [substitutes, setSubstitutes] = useState([]);
+  const [substituteLoading, setSubstituteLoading] = useState(false);
 
   // ================================================================
   // COMPUTED
@@ -379,7 +388,9 @@ function BanHangPage() {
   // ================================================================
   const addToCart = useCallback(async (thuoc, tonKho) => {
     if (!tonKho || tonKho <= 0) {
-      toast.error('Thuốc đã hết hàng');
+      // Thuốc hết hàng → fetch gợi ý thay thế (đề bài 18/9 - đúng nghiệp vụ)
+      await showSubstitutesFor(thuoc);
+      toast.error(`"${thuoc.TenThuoc}" đã hết hàng`);
       return;
     }
 
@@ -455,6 +466,73 @@ function BanHangPage() {
   }, [cart.length]);
 
   // ================================================================
+  // GỢI Ý THUỐC THAY THẾ (khi thuốc nguồn hết hàng)
+  // Nghiệp vụ: NV tìm thuốc A mà hết → đề xuất thuốc B cùng hoạt chất còn hàng.
+  // ================================================================
+  const showSubstitutesFor = useCallback(async (thuoc) => {
+    if (!thuoc?.MaThuoc) return;
+    setOutOfStockThuoc(thuoc);
+    setSubstitutes([]);
+    setSubstituteLoading(true);
+    try {
+      const res = await thuocService.getSimilar(thuoc.MaThuoc, { limit: 6, inStockOnly: true });
+      setSubstitutes(res.data || []);
+    } catch {
+      setSubstitutes([]);
+    } finally {
+      setSubstituteLoading(false);
+    }
+  }, []);
+
+  const dismissSubstitutes = useCallback(() => {
+    setOutOfStockThuoc(null);
+    setSubstitutes([]);
+  }, []);
+
+  const handlePickSubstitute = useCallback(async (sub) => {
+    const tonKho = Number(sub.SoLuongTonKho) || 0;
+    if (tonKho <= 0) {
+      toast.error('Thuốc thay thế đã hết hàng');
+      return;
+    }
+    dismissSubstitutes();
+
+    let loFIFO = [];
+    try {
+      const res = await khoService.getLoByThuoc(sub.MaThuoc);
+      loFIFO = (res.data?.items || []).slice(0, 3);
+    } catch { /* fallback */ }
+
+    setCart(prev => {
+      const existing = prev.find(it => it.MaThuoc === sub.MaThuoc);
+      if (existing) {
+        if (existing.soLuong >= tonKho) {
+          toast.error(`Chỉ còn ${tonKho} trong kho`);
+          return prev;
+        }
+        return prev.map(it =>
+          it.MaThuoc === sub.MaThuoc
+            ? { ...it, soLuong: it.soLuong + 1, thanhTien: (it.soLuong + 1) * it.giaBan }
+            : it
+        );
+      }
+      const newItem = {
+        uid: uid(),
+        MaThuoc: sub.MaThuoc,
+        TenThuoc: sub.TenThuoc,
+        soLuong: 1,
+        giaBan: Number(sub.GiaBanThamKhao) || 0,
+        thanhTien: Number(sub.GiaBanThamKhao) || 0,
+        loFIFO,
+        tonKho,
+      };
+      return [...prev, newItem];
+    });
+    toast.success(`Đã thêm thuốc thay thế "${sub.TenThuoc}"`, { icon: '💊', duration: 1500 });
+    setView('cart');
+  }, [dismissSubstitutes]);
+
+  // ================================================================
   // XEM CHI TIẾT HÓA ĐƠN VỪA TẠO
   // ================================================================
   const handleViewInvoiceDetail = useCallback(() => {
@@ -520,6 +598,17 @@ function BanHangPage() {
         {/* LEFT — TÌM KIẾM + PRODUCT GRID / CART ITEMS            */}
         {/* ═══════════════════════════════════════════════════════ */}
         <div className="lg:col-span-2 space-y-3">
+          {/* Banner gợi ý thay thế (khi user chọn thuốc hết hàng) */}
+          {outOfStockThuoc && (
+            <SuggestedSubstitute
+              thuocNguon={outOfStockThuoc}
+              substitutes={substitutes}
+              loading={substituteLoading}
+              onPick={handlePickSubstitute}
+              onDismiss={dismissSubstitutes}
+            />
+          )}
+
           {/* Search bar */}
           <div className="relative">
             <div className="relative">
