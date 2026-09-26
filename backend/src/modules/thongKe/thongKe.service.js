@@ -336,6 +336,68 @@ async function thongKeHoaDon({ fromDate, toDate } = {}) {
     };
 }
 
+// ========== 2b. THỐNG KÊ HÓA ĐƠN — DANH SÁCH CHI TIẾT ==========
+/**
+ * Danh sách hóa đơn chi tiết trong kỳ (phân trang).
+ * Dùng cho tab "Thống kê > Hóa đơn" — yêu cầu "xem được hóa đơn".
+ * Mặc định bao gồm cả hóa đơn ĐÃ HỦY để user kiểm tra lịch sử đầy đủ.
+ */
+async function thongKeHoaDonList({ fromDate, toDate, page = 1, limit = 20 } = {}) {
+    const offset = (page - 1) * limit;
+    const params = {};
+    let whereSql = `WHERE 1=1`;
+    if (fromDate) {
+        whereSql += ` AND CAST(hd.NgayGioLap AS DATE) >= @fromDate`;
+        params.fromDate = fromDate;
+    }
+    if (toDate) {
+        whereSql += ` AND CAST(hd.NgayGioLap AS DATE) <= @toDate`;
+        params.toDate = toDate;
+    }
+
+    const countR = await db.query(
+        `SELECT COUNT(*) AS total FROM HoaDon hd ${whereSql}`,
+        params
+    );
+    const total = countR.recordset[0].total;
+
+    const listR = await db.query(
+        `SELECT
+            hd.MaHD,
+            hd.NgayGioLap,
+            hd.TongTien,
+            hd.TienKhachDua,
+            hd.TienTraLai,
+            hd.TrangThai,
+            hd.MaNV,
+            nv.TenNV,
+            hd.MaKH,
+            ISNULL(kh.TenKH, N'Khách lẻ') AS TenKH
+         FROM HoaDon hd
+         LEFT JOIN NhanVien nv ON hd.MaNV = nv.MaNV
+         LEFT JOIN KhachHang kh ON hd.MaKH = kh.MaKH
+         ${whereSql}
+         ORDER BY hd.NgayGioLap DESC, hd.MaHD DESC
+         OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`,
+        params
+    );
+
+    const items = listR.recordset.map(r => ({
+        maHD: r.MaHD,
+        ngayGioLap: r.NgayGioLap,
+        tongTien: Number(r.TongTien) || 0,
+        tienKhachDua: Number(r.TienKhachDua) || 0,
+        tienTraLai: Number(r.TienTraLai) || 0,
+        trangThai: r.TrangThai,
+        maNV: r.MaNV,
+        tenNV: r.TenNV || `#${r.MaNV}`,
+        maKH: r.MaKH,
+        tenKH: r.TenKH,
+    }));
+
+    return { items, total };
+}
+
 // ========== 3. THỐNG KÊ TÀI CHÍNH ==========
 async function thongKeTaiChinh({ fromDate, toDate } = {}) {
     // ===== Phần thu (HoaDon DaThanhToan) =====
@@ -598,5 +660,6 @@ async function thongKeTaiChinh({ fromDate, toDate } = {}) {
 module.exports = {
     thongKeKho,
     thongKeHoaDon,
+    thongKeHoaDonList,
     thongKeTaiChinh,
 };

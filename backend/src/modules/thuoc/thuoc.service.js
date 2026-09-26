@@ -219,31 +219,56 @@ async function getById(maThuoc) {
 }
 
 /**
- * Lấy thuốc cùng hoạt chất (cho "sản phẩm thay thế")
+ * Lấy thuốc cùng hoạt chất (cho "sản phẩm thay thế" ở POS khi thuốc hết hàng)
+ *
+ * Nghiệp vụ (đúng yêu cầu đề bài 18/9 - "Khi thuốc A hết, đề xuất thuốc B cùng hoạt chất"):
+ *  - Mặc định chỉ trả về thuốc CÒN TỒN KHO và CHƯA HẾT HẠN (inStockOnly = true).
+ *  - Sort: thuốc cùng hàm lượng (KhoiLuong) trước → "tương đương", sau đó mới đến khác hàm lượng.
+ *  - Thêm field `tuongDuong` (boolean) để FE phân biệt: thuốc thay thế tương đương vs khác hàm lượng.
+ *  - Trong mỗi nhóm: còn hàng nhiều trước (còn càng nhiều → càng khả thi).
+ *
+ * @param {number} maThuoc - Mã thuốc nguồn
+ * @param {number} limit   - Giới hạn số lượng trả về
+ * @param {Object} options - { inStockOnly?: boolean = true, sort?: string = 'tuongDuong' }
  */
-async function getSimilarByHoatChat(maThuoc, limit = 5) {
+async function getSimilarByHoatChat(maThuoc, limit = 5, { inStockOnly = true } = {}) {
     const thuoc = await getById(maThuoc);
     if (!thuoc || !thuoc.HoatChat) return [];
 
+    // Tồn kho thực tế (còn hàng + chưa hết hạn)
+    const stockSubquery = `ISNULL((
+        SELECT SUM(l.SoLuongTonKho)
+        FROM LoThuoc_ChiTietNhap l
+        INNER JOIN PhieuNhap pn ON l.MaPN = pn.MaPN
+        WHERE l.MaThuoc = t.MaThuoc
+          AND l.SoLuongTonKho > 0
+          AND l.HanSD > GETDATE()
+          AND pn.TrangThai = N'DaNhap'
+    ), 0)`;
+
+    const whereExtra = inStockOnly
+        ? `AND ${stockSubquery} > 0`
+        : '';
+
+    // Sắp xếp: tương đương (cùng KhoiLuong) trước, sau đó khác hàm lượng.
+    // Trong mỗi nhóm: còn nhiều trước, MaThuoc mới trước.
     const result = await db.query(
         `SELECT TOP (@limit)
             t.MaThuoc, t.TenThuoc, t.HoatChat, t.KhoiLuong,
             t.GiaBanThamKhao, t.MaDM, dm.TenDM,
-            ISNULL((
-                SELECT SUM(l.SoLuongTonKho)
-                FROM LoThuoc_ChiTietNhap l
-                INNER JOIN PhieuNhap pn ON l.MaPN = pn.MaPN
-                WHERE l.MaThuoc = t.MaThuoc
-                  AND l.SoLuongTonKho > 0
-                  AND l.HanSD > GETDATE()
-                  AND pn.TrangThai = N'DaNhap'
-            ), 0) AS SoLuongTonKho
+            ${stockSubquery} AS SoLuongTonKho,
+            CASE WHEN t.KhoiLuong = @khoiLuong AND @khoiLuong IS NOT NULL
+                 THEN 1 ELSE 0 END AS TuongDuong
          FROM Thuoc t
          LEFT JOIN DanhMuc dm ON t.MaDM = dm.MaDM
          WHERE t.HoatChat = @hoatChat
            AND t.MaThuoc != @maThuoc
-         ORDER BY t.MaThuoc DESC`,
-        { maThuoc, hoatChat: thuoc.HoatChat, limit }
+           ${whereExtra}
+         ORDER BY
+            TuongDuong DESC,
+            ${stockSubquery} DESC,
+            t.MaThuoc DESC`,
+        { maThuoc, hoatChat: thuoc.HoatChat, khoiLuong: thuoc.KhoiLuong, limit }
     );
     return result.recordset;
 }

@@ -228,12 +228,12 @@ async function getAll({ keyword = '', page = 1, limit = 10, fromDate, toDate } =
         params.kw = '%' + keyword.trim().replace(/[%_]/g, '\\$&') + '%';
     }
     if (fromDate) {
-        whereSql += (whereSql ? ' AND ' : 'WHERE ') + 'hd.NgayGioLap >= @fromDate';
-        params.fromDate = new Date(fromDate);
+        whereSql += (whereSql ? ' AND ' : 'WHERE ') + 'CAST(hd.NgayGioLap AS DATE) >= @fromDate';
+        params.fromDate = fromDate;
     }
     if (toDate) {
-        whereSql += (whereSql ? ' AND ' : 'WHERE ') + 'hd.NgayGioLap <= @toDate';
-        params.toDate = new Date(toDate + 'T23:59:59');
+        whereSql += (whereSql ? ' AND ' : 'WHERE ') + 'CAST(hd.NgayGioLap AS DATE) <= @toDate';
+        params.toDate = toDate;
     }
 
     const countR = await db.query(`

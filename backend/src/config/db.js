@@ -28,6 +28,11 @@ function buildConfig(databaseName = null) {
             encrypt: process.env.DB_ENCRYPT === 'true',
             trustServerCertificate: true,
             enableArithAbort: true,
+            // Database DATETIME/DATETIME2 columns use GETDATE() and therefore
+            // contain Vietnam wall-clock time, not UTC. Without this option,
+            // tedious treats those values as UTC and the browser adds another
+            // seven hours when displaying an invoice timestamp.
+            useUTC: false,
             connectionTimeout: 30000,
             requestTimeout: 30000,
         },

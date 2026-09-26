@@ -33,12 +33,17 @@ const getById = asyncHandler(async (req, res) => {
 });
 
 /**
- * GET /api/thuoc/:id/similar
- * Lấy thuốc cùng hoạt chất (cho "sản phẩm thay thế" ở detail page)
+ * GET /api/thuoc/:id/similar?inStockOnly=true&limit=5
+ * Lấy thuốc cùng hoạt chất (cho "sản phẩm thay thế" khi thuốc nguồn hết hàng)
+ *
+ * Query:
+ *  - inStockOnly: 'true' (mặc định) | 'false' — chỉ trả thuốc đang còn hàng + chưa hết hạn
+ *  - limit: số lượng tối đa (1-10, mặc định 5)
  */
 const getSimilar = asyncHandler(async (req, res) => {
     const limit = Math.min(10, Math.max(1, parseInt(req.query.limit, 10) || 5));
-    const items = await thuocService.getSimilarByHoatChat(parseInt(req.params.id), limit);
+    const inStockOnly = req.query.inStockOnly !== 'false'; // mặc định true
+    const items = await thuocService.getSimilarByHoatChat(parseInt(req.params.id), limit, { inStockOnly });
     return success(res, items);
 });
 

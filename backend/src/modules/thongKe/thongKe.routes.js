@@ -61,6 +61,26 @@ router.get('/hoa-don', ctrl.getHoaDon);
  *       200: { description: OK }
  *       403: { description: Không đủ quyền (cần Admin) }
  */
+router.get('/hoa-don/list', ctrl.getHoaDonList);
+
+/**
+ * @openapi
+ * /api/thong-ke/tai-chinh:
+ *   get:
+ *     tags: [Thống kê]
+ *     summary: Dashboard tài chính (Admin only) — tổng thu/chi/lợi nhuận
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: tuNgay
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: denNgay
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200: { description: OK }
+ *       403: { description: Không đủ quyền (cần Admin) }
+ */
 router.get('/tai-chinh', requireRole('Admin'), ctrl.getTaiChinh);
 
 module.exports = router;
