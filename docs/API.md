@@ -233,7 +233,7 @@ Validate: `maDM` ≤ 20 ký tự, `tenDM` ≤ 200 ký tự.
 |---|---|---|---|---|
 | `GET` | `/api/thuoc` | Bearer | All | Danh sách + filter + phân trang |
 | `GET` | `/api/thuoc/:id` | Bearer | All | Chi tiết |
-| `GET` | `/api/thuoc/:id/similar` | Bearer | All | Thuốc cùng hoạt chất (gợi ý thay thế) |
+| `GET` | `/api/thuoc/:id/similar` | Bearer | All | Thuốc cùng hoạt chất (gợi ý thay thế khi thuốc hết) |
 | `POST` | `/api/thuoc` | Bearer | **Admin** | Tạo mới |
 | `PUT` | `/api/thuoc/:id` | Bearer | **Admin** | Cập nhật |
 | `DELETE` | `/api/thuoc/:id` | Bearer | **Admin** | Xóa |
@@ -280,13 +280,17 @@ Validate: `maDM` ≤ 20 ký tự, `tenDM` ≤ 200 ký tự.
 }
 ```
 
-### 4.2 `GET /api/thuoc/:id/similar?limit=5`
+### 4.2 `GET /api/thuoc/:id/similar?limit=5&inStockOnly=true`
 
 ```http
-GET /api/thuoc/1/similar?limit=5
+GET /api/thuoc/1/similar?limit=6&inStockOnly=true
 ```
 
 Trả về tối đa 5 (mặc định) thuốc cùng `hoatChat`.
+
+- `inStockOnly=true` (mặc định): chỉ trả thuốc **đang còn hàng và chưa hết hạn** — dùng cho nghiệp vụ "gợi ý thuốc thay thế" khi thuốc nguồn hết.
+- `inStockOnly=false`: trả về tất cả (kể cả hết hàng) — dùng cho trang chi tiết thuốc.
+- Sắp xếp: thuốc **cùng `KhoiLuong`** (tương đương) trước, sau đó mới đến khác hàm lượng. Mỗi field `tuongDuong` (boolean) đánh dấu thuốc thay thế tương đương.
 
 ### 4.3 `POST /api/thuoc`
 
@@ -642,6 +646,7 @@ Trả về: `tongChiTheoNgay[]`, `chiTheoDanhMuc[]`, `top5NoiDung[]` cho chart +
 |---|---|---|---|---|
 | `GET` | `/api/thong-ke/kho` | Bearer | All | Dashboard Kho |
 | `GET` | `/api/thong-ke/hoa-don` | Bearer | All | Doanh thu + top thuốc (`?from&to`) |
+| `GET` | `/api/thong-ke/hoa-don/list` | Bearer | All | Danh sách chi tiết hóa đơn trong kỳ (phân trang, `?from&to&page&limit`) |
 | `GET` | `/api/thong-ke/tai-chinh` | Bearer | **Admin** | Tổng thu/chi/lợi nhuận (`?from&to`) |
 
 ### 13.1 Query chung
