@@ -282,6 +282,13 @@ async function findBySDT(sdt, excludeMaKH = null) {
 }
 
 async function create(data) {
+    const tenKH = (data.tenKH || '').trim();
+    if (!tenKH) {
+        const err = new Error('Vui lòng nhập tên khách hàng');
+        err.statusCode = 400;
+        throw err;
+    }
+
     // Kiểm tra trùng SDT trước khi tạo
     if (data.sdt) {
         const existingMaKH = await findBySDT(data.sdt);
@@ -297,7 +304,7 @@ async function create(data) {
          OUTPUT INSERTED.MaKH, INSERTED.TenKH, INSERTED.SDT, INSERTED.GioiTinh, INSERTED.NgayTao, INSERTED.UpdatedAt
          VALUES (@tenKH, @sdt, @gioiTinh)`,
         {
-            tenKH: data.tenKH,
+            tenKH,
             sdt: encryptAES(data.sdt) || null,
             gioiTinh: data.gioiTinh || null
         }
@@ -307,6 +314,13 @@ async function create(data) {
 }
 
 async function update(maKH, data) {
+    const tenKH = (data.tenKH || '').trim();
+    if (!tenKH) {
+        const err = new Error('Vui lòng nhập tên khách hàng');
+        err.statusCode = 400;
+        throw err;
+    }
+
     // Kiểm tra trùng SDT (loại trừ chính record đang sửa)
     if (data.sdt) {
         const existingMaKH = await findBySDT(data.sdt, maKH);
@@ -324,7 +338,7 @@ async function update(maKH, data) {
          WHERE MaKH = @maKH`,
         {
             maKH,
-            tenKH: data.tenKH,
+            tenKH,
             sdt: encryptAES(data.sdt) || null,
             gioiTinh: data.gioiTinh || null
         }

@@ -49,7 +49,8 @@ const getHoaDonByKhachHang = asyncHandler(async (req, res) => {
 
 const create = asyncHandler(async (req, res) => {
     const { tenKH, sdt, gioiTinh } = req.body;
-    if (!tenKH) return error(res, 'Vui lòng nhập tên khách hàng', 400);
+    const tenKHTrimmed = tenKH?.trim();
+    if (!tenKHTrimmed) return error(res, 'Vui lòng nhập tên khách hàng', 400);
 
     // Validate SĐT: 10-11 số nếu có
     if (sdt && sdt.trim() && !/^\d{10,11}$/.test(sdt.trim())) {
@@ -57,7 +58,7 @@ const create = asyncHandler(async (req, res) => {
     }
 
     try {
-        const item = await khService.create({ tenKH, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
+        const item = await khService.create({ tenKH: tenKHTrimmed, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
         return created(res, item, 'Tạo khách hàng thành công');
     } catch (err) {
         if (err.code === 'DUPLICATE_SDT') {
@@ -69,13 +70,14 @@ const create = asyncHandler(async (req, res) => {
 
 const update = asyncHandler(async (req, res) => {
     const { tenKH, sdt, gioiTinh } = req.body;
-    if (!tenKH) return error(res, 'Vui lòng nhập tên khách hàng', 400);
+    const tenKHTrimmed = tenKH?.trim();
+    if (!tenKHTrimmed) return error(res, 'Vui lòng nhập tên khách hàng', 400);
     if (sdt && sdt.trim() && !/^\d{10,11}$/.test(sdt.trim())) {
         return error(res, 'Số điện thoại phải là 10-11 chữ số', 400);
     }
 
     try {
-        const item = await khService.update(parseInt(req.params.id, 10), { tenKH, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
+        const item = await khService.update(parseInt(req.params.id, 10), { tenKH: tenKHTrimmed, sdt: sdt ? sdt.trim() : null, gioiTinh: gioiTinh || null });
         if (!item) return notFound(res, `Không tìm thấy KH #${req.params.id}`);
         return success(res, item, 'Cập nhật thành công');
     } catch (err) {
