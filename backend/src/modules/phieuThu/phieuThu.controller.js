@@ -4,9 +4,18 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { success, created, successPaginated, error } = require('../../utils/response');
 
 const create = asyncHandler(async (req, res) => {
+    const { soTien, noiDung } = req.body;
+    const amount = Number(soTien);
+    if (!Number.isFinite(amount) || amount <= 0) {
+        return error(res, 'Số tiền phải lớn hơn 0', 400);
+    }
+    if (!Number.isInteger(amount)) {
+        return error(res, 'Số tiền phải là số nguyên (đơn vị VND)', 400);
+    }
+
     const phieuThu = await phieuThuService.create({
-        soTien: req.body.soTien,
-        noiDung: req.body.noiDung,
+        soTien: amount,
+        noiDung: (noiDung || '').trim(),
         maNV: req.user.maNV,
     });
     await logAudit(req, 'CREATE_PHIEUTHU', 'PhieuThu', String(phieuThu.MaPhieuThu), null, {

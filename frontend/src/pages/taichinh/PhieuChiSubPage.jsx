@@ -188,10 +188,11 @@ function PhieuChiSubPage() {
                     </div>
                     <div>
                         <label className="block text-caption font-medium text-neutral-700 mb-1">Số tiền (VND) <span className="text-danger-600">*</span></label>
-                        <input type="number" min="1" step="1000" value={createForm.soTien}
+                        <input type="number" min="1" step="1" value={createForm.soTien}
                             onChange={(e) => setCreateForm((c) => ({ ...c, soTien: e.target.value }))}
                             placeholder="Nhập số tiền..."
                             className="w-full h-10 rounded-btn border border-neutral-300 px-3 text-body font-mono focus:border-primary-500 focus:outline-none" />
+                            title="Cho phép nhập đơn vị lẻ (VD: 19.001đ)"
                         {soTienValid && (
                             <p className="mt-1 text-caption text-danger-700 font-mono">= {formatCurrency(soTienNum)}</p>
                         )}

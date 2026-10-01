@@ -23,6 +23,12 @@ async function create({ soTien, noiDung, maNV }) {
         err.statusCode = 400;
         throw err;
     }
+    // VND là đơn vị nguyên — chặn số thập phân để khớp Decimal(18,2) và tránh lệch sổ
+    if (!Number.isInteger(amount)) {
+        const err = new Error('Số tiền phải là số nguyên (đơn vị VND)');
+        err.statusCode = 400;
+        throw err;
+    }
     if (!content) {
         const err = new Error('Nội dung không được để trống');
         err.statusCode = 400;

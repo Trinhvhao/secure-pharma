@@ -19,12 +19,19 @@ const create = asyncHandler(async (req, res) => {
     if (soTien === undefined || soTien === null || soTien === '') {
         return error(res, 'Vui lòng nhập số tiền', 400);
     }
+    const soTienNum = Number(soTien);
+    if (!Number.isFinite(soTienNum) || soTienNum <= 0) {
+        return error(res, 'Số tiền phải > 0', 400);
+    }
+    if (!Number.isInteger(soTienNum)) {
+        return error(res, 'Số tiền phải là số nguyên (đơn vị VND)', 400);
+    }
     if (!noiDung || !noiDung.trim()) {
         return error(res, 'Vui lòng nhập nội dung', 400);
     }
 
     const phieuChi = await phieuChiService.create({
-        soTien: Number(soTien),
+        soTien: soTienNum,
         noiDung,
         maNV,
     });

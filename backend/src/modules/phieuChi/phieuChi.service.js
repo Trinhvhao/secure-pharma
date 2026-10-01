@@ -48,6 +48,12 @@ async function create(data) {
         err.statusCode = 400;
         throw err;
     }
+    // VND là đơn vị nguyên — chặn số thập phân để khớp Decimal(18,2) và tránh lệch sổ
+    if (!Number.isInteger(soTienNum)) {
+        const err = new Error('Số tiền phải là số nguyên (đơn vị VND)');
+        err.statusCode = 400;
+        throw err;
+    }
 
     const noiDungTrim = (noiDung || '').trim();
     if (!noiDungTrim) {
